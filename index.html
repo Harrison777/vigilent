@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="VIGILENT — Always watching. Real-time geospatial intelligence fused onto a 3D model of the Earth">
+  <title>VIGILENT — Always Watching</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Cesium 3D Globe Container -->
+  <div id="cesiumContainer"></div>
+
+  <!-- Top Bar -->
+  <header id="topBar">
+    <div class="top-bar-left">
+      <button id="sidebarToggle" class="icon-btn" title="Toggle Sidebar">
+        <span class="material-symbols-outlined">menu</span>
+      </button>
+      <div class="brand">
+        <img src="/vigilent-logo.png" alt="VIGILENT" class="brand-logo">
+        <h1>VIGILENT</h1>
+        <span class="brand-tag">always watching..</span>
+      </div>
+    </div>
+    <div class="top-bar-center">
+      <div id="searchContainer">
+        <button id="searchModeToggle" class="search-mode-toggle" title="Toggle Agent Mode">
+          <span class="material-symbols-outlined">search</span>
+        </button>
+        <input type="text" id="searchInput" placeholder="Search location... (e.g., Pentagon, Kremlin, Beijing)" autocomplete="off">
+        <div id="searchResults" class="search-dropdown"></div>
+        <div id="agentPanel" class="agent-panel hidden"></div>
+      </div>
+    </div>
+    <div class="top-bar-right">
+      <div class="hud-readout hud-coord">
+        <span class="readout-label">ALT</span>
+        <span id="hudAlt" class="readout-value">--</span>
+      </div>
+      <div class="hud-readout hud-coord">
+        <span class="readout-label">LAT</span>
+        <span id="hudLat" class="readout-value">--</span>
+      </div>
+      <div class="hud-readout hud-coord">
+        <span class="readout-label">LON</span>
+        <span id="hudLon" class="readout-value">--</span>
+      </div>
+      <div class="hud-divider"></div>
+      <div id="clockDisplay" class="hud-readout">
+        <span class="readout-label">UTC</span>
+        <span id="utcClock" class="readout-value">--:--:--</span>
+      </div>
+      <div class="hud-readout">
+        <span class="readout-label">FPS</span>
+        <span id="fpsCounter" class="readout-value">--</span>
+      </div>
+      <div class="hud-readout">
+        <span class="readout-label">LAYERS</span>
+        <span id="activeLayerCount" class="readout-value">0</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="open">
+    <div class="sidebar-content">
+      <!-- Data Layers -->
+      <section class="sidebar-section">
+        <h2 class="section-title">
+          <span class="material-symbols-outlined">layers</span>
+          DATA LAYERS
+        </h2>
+        <div class="layer-group">
+          <h3 class="group-title">SPACE</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-commercial" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">satellite_alt</span>
+            <span>Commercial Satellites</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-military" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">shield</span>
+            <span>Military / ISR Satellites</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">AIR</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="aviation-commercial" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">flight</span>
+            <span>Commercial Aviation</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="aviation-military">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">radar</span>
+            <span>Military / ADS-B</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">GROUND</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="traffic">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">traffic</span>
+            <span>Traffic Particles</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="cctv">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">videocam</span>
+            <span>CCTV Feeds</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="seismic" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">earthquake</span>
+            <span>Seismic Activity</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">SEA</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="maritime" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">directions_boat</span>
+            <span>Maritime Vessels</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">GEOPOLITICAL</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="events" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">crisis_alert</span>
+            <span>Geopolitical Events</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="gps-jamming">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">wifi_tethering_error</span>
+            <span>GPS Jamming</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="internet-blackouts">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">wifi_off</span>
+            <span>Internet Blackouts</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="airspace-closures">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">block</span>
+            <span>Airspace Closures</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">MARKETS</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="ticker" checked>
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">trending_up</span>
+            <span>Financial Ticker</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="markets">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">show_chart</span>
+            <span>Market Overlays</span>
+          </label>
+        </div>
+        <div class="layer-group">
+          <h3 class="group-title">ENVIRONMENT</h3>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="weather">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">cloud</span>
+            <span>Weather Radar</span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Shader Controls -->
+      <section class="sidebar-section">
+        <h2 class="section-title">
+          <span class="material-symbols-outlined">tune</span>
+          VISUAL MODE
+        </h2>
+        <div class="shader-modes">
+          <button class="shader-btn active" data-mode="normal">
+            <span class="material-symbols-outlined">visibility</span>
+            NORMAL
+          </button>
+          <button class="shader-btn" data-mode="nvg">
+            <span class="material-symbols-outlined">nightlight</span>
+            NVG
+          </button>
+          <button class="shader-btn" data-mode="flir">
+            <span class="material-symbols-outlined">thermostat</span>
+            FLIR
+          </button>
+          <button class="shader-btn" data-mode="crt">
+            <span class="material-symbols-outlined">tv</span>
+            CRT
+          </button>
+        </div>
+        <div id="shaderSliders" class="shader-sliders">
+          <div class="slider-row">
+            <label>BLOOM</label>
+            <input type="range" id="bloomIntensity" min="0" max="100" value="15">
+            <span class="slider-val" id="bloomVal">15</span>
+          </div>
+          <div class="slider-row">
+            <label>SHARPEN</label>
+            <input type="range" id="sharpenIntensity" min="0" max="100" value="0">
+            <span class="slider-val" id="sharpenVal">0</span>
+          </div>
+          <div class="slider-row hidden" id="sensitivityRow">
+            <label>SENSITIVITY</label>
+            <input type="range" id="sensitivity" min="0" max="100" value="50">
+            <span class="slider-val" id="sensitivityVal">50</span>
+          </div>
+          <div class="slider-row hidden" id="pixelationRow">
+            <label>PIXELATION</label>
+            <input type="range" id="pixelation" min="0" max="100" value="0">
+            <span class="slider-val" id="pixelationVal">0</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- Info Panel (click details) -->
+  <div id="infoPanel" class="info-panel hidden">
+    <div class="info-panel-header">
+      <h3 id="infoPanelTitle">—</h3>
+      <button id="infoPanelClose" class="icon-btn">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div id="infoPanelBody" class="info-panel-body"></div>
+  </div>
+
+  <!-- Live Stats Strip -->
+  <div id="statsBar">
+    <div class="stat-item" id="statSatellites">
+      <span class="material-symbols-outlined">satellite_alt</span>
+      <span class="stat-count">0</span>
+      <span class="stat-label">SAT</span>
+    </div>
+    <div class="stat-item" id="statFlights">
+      <span class="material-symbols-outlined">flight</span>
+      <span class="stat-count">0</span>
+      <span class="stat-label">AIR</span>
+    </div>
+    <div class="stat-item" id="statVessels">
+      <span class="material-symbols-outlined">directions_boat</span>
+      <span class="stat-count">0</span>
+      <span class="stat-label">SEA</span>
+    </div>
+    <div class="stat-item" id="statQuakes">
+      <span class="material-symbols-outlined">earthquake</span>
+      <span class="stat-count">0</span>
+      <span class="stat-label">SEIS</span>
+    </div>
+    <div class="stat-item" id="statEvents">
+      <span class="material-symbols-outlined">crisis_alert</span>
+      <span class="stat-count">0</span>
+      <span class="stat-label">EVT</span>
+    </div>
+  </div>
+
+  <!-- 4D Timeline -->
+  <div id="timelineContainer">
+    <div class="timeline-controls">
+      <button id="timelinePlayBtn" class="icon-btn" title="Play/Pause">
+        <span class="material-symbols-outlined">play_arrow</span>
+      </button>
+      <button id="timelineSpeedBtn" class="icon-btn" title="Playback Speed">
+        <span id="speedLabel">1×</span>
+      </button>
+      <span id="timelineDate" class="timeline-date">----/--/--</span>
+    </div>
+    <div class="timeline-track-wrapper">
+      <div id="timelineTrack" class="timeline-track">
+        <div id="timelineProgress" class="timeline-progress"></div>
+        <div id="timelineScrubber" class="timeline-scrubber"></div>
+        <!-- Event markers injected dynamically -->
+      </div>
+    </div>
+    <div class="timeline-filters">
+      <button class="filter-chip active" data-filter="all">ALL</button>
+      <button class="filter-chip" data-filter="strike">STRIKES</button>
+      <button class="filter-chip" data-filter="response">RESPONSES</button>
+      <button class="filter-chip" data-filter="diplomatic">DIPLOMATIC</button>
+      <button class="filter-chip" data-filter="sanction">SANCTIONS</button>
+    </div>
+  </div>
+
+  <!-- Correlation Overlay -->
+  <div id="correlationPanel" class="correlation-panel hidden">
+    <h3><span class="material-symbols-outlined">link</span> SATELLITE CORRELATION</h3>
+    <div id="correlationBody"></div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

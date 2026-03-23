@@ -1,0 +1,336 @@
+/* ══════════════════════════════════════════════════════
+   HISTORICAL NAVIGATOR v2 — Unified Bottom Player + Stop List
+   ══════════════════════════════════════════════════════ */
+
+/* ── STOP LIST (left panel) ── */
+
+#navigatorStopList {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  bottom: 50px;
+  width: 280px;
+  background: linear-gradient(180deg, rgba(10, 14, 23, 0.95) 0%, rgba(10, 14, 23, 0.92) 100%);
+  backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 213, 79, 0.15);
+  overflow-y: auto;
+  z-index: 1200;
+  transform: translateX(-100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 213, 79, 0.2) transparent;
+}
+#navigatorStopList.visible {
+  transform: translateX(0);
+}
+
+.nav-list-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 16px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255, 213, 79, 0.7);
+  border-bottom: 1px solid rgba(255, 213, 79, 0.1);
+  position: sticky;
+  top: 0;
+  background: rgba(10, 14, 23, 0.98);
+  z-index: 5;
+}
+.nav-list-header .material-symbols-outlined {
+  font-size: 16px;
+  color: #ffd54f;
+}
+
+/* Stop items */
+.nav-stop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+  position: relative;
+}
+.nav-stop-item:hover {
+  background: rgba(255, 213, 79, 0.06);
+}
+.nav-stop-item.active {
+  background: rgba(0, 229, 255, 0.08);
+  border-left-color: #00e5ff;
+}
+.nav-stop-item.completed {
+  opacity: 0.55;
+}
+.nav-stop-item.completed .nav-stop-num {
+  background: rgba(255, 213, 79, 0.2);
+  color: #ffd54f;
+}
+
+/* Number badge */
+.nav-stop-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+.nav-stop-item.active .nav-stop-num {
+  background: rgba(0, 229, 255, 0.25);
+  color: #00e5ff;
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.3);
+}
+
+/* Event icon */
+.nav-stop-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+}
+
+/* Details */
+.nav-stop-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.nav-stop-name {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-stop-item.active .nav-stop-name {
+  color: #fff;
+  font-weight: 600;
+}
+.nav-stop-year {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.5px;
+}
+.nav-stop-item.active .nav-stop-year {
+  color: rgba(0, 229, 255, 0.6);
+}
+
+/* Connecting line between stops */
+.nav-stop-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 23px;
+  bottom: -1px;
+  width: 1px;
+  height: 10px;
+  background: rgba(255, 213, 79, 0.12);
+}
+.nav-stop-item.completed:not(:last-child)::after {
+  background: rgba(255, 213, 79, 0.3);
+}
+
+/* ── NAVIGATOR HUD (bottom bar — replaces timeline) ── */
+
+#navigatorHUD {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50px;
+  z-index: 1250;
+  background: linear-gradient(0deg, rgba(10, 14, 23, 0.97) 0%, rgba(10, 14, 23, 0.88) 100%);
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 213, 79, 0.15);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  transform: translateY(100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#navigatorHUD.visible {
+  transform: translateY(0);
+}
+
+/* Progress track */
+.nav-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+}
+.nav-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00e5ff, #ffd54f);
+  transition: width 0.6s ease;
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+/* Title section */
+.nav-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+.nav-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: #ffd54f;
+  text-transform: uppercase;
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-state {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.nav-state-flying { color: #00e5ff; background: rgba(0, 229, 255, 0.1); }
+.nav-state-narrating { color: #ffd54f; background: rgba(255, 213, 79, 0.1); }
+.nav-state-paused { color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.05); }
+.nav-state-complete { color: #69f0ae; background: rgba(105, 240, 174, 0.1); }
+
+/* Controls cluster */
+.nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.nav-controls button {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.nav-controls button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.nav-controls button .material-symbols-outlined {
+  font-size: 20px;
+}
+/* Play/pause larger */
+.nav-btn-play .material-symbols-outlined,
+.nav-btn-pause .material-symbols-outlined {
+  font-size: 24px;
+}
+
+/* Stop counter */
+.nav-stop-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* Lecture text — the narration display */
+.nav-lecture {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.75);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Duration badge */
+.nav-duration {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Right-side controls (mute, close) */
+.nav-end-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.nav-end-controls button {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.nav-end-controls button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.nav-end-controls button .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* ── TOUR BUTTON (in agent panel) ── */
+
+.agent-tour-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border: 1px solid rgba(255, 213, 79, 0.3);
+  border-radius: 8px;
+  background: rgba(255, 213, 79, 0.08);
+  color: #ffd54f;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.agent-tour-btn:hover {
+  background: rgba(255, 213, 79, 0.15);
+  border-color: #ffd54f;
+  box-shadow: 0 0 20px rgba(255, 213, 79, 0.15);
+}
+.agent-tour-btn .material-symbols-outlined {
+  font-size: 18px;
+}

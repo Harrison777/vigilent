@@ -1,5 +1,6 @@
 /**
  * post-processing.js — Cesium PostProcessStage pipeline for bloom, sharpen, and LUT
+ * OPTIMIZED: 9-tap Gaussian bloom (was 25-sample box blur)
  */
 import * as Cesium from 'cesium';
 import { getViewer } from '../core/globe.js';
@@ -7,7 +8,7 @@ import { getViewer } from '../core/globe.js';
 let bloomStage = null;
 let sharpenStage = null;
 
-// === BLOOM GLSL ===
+// === BLOOM GLSL — 9-tap Gaussian (was 25 reads, now 9) ===
 const BLOOM_FRAG = `
   uniform sampler2D colorTexture;
   uniform float bloomIntensity;
@@ -16,25 +17,24 @@ const BLOOM_FRAG = `
 
   void main() {
     vec4 color = texture(colorTexture, v_textureCoordinates);
-    
-    // Extract bright pixels
-    float brightness = dot(color.rgb, vec3(0.2126, 0.7152, 0.0722));
-    vec4 brightColor = brightness > bloomThreshold ? color : vec4(0.0);
-    
-    // Multi-sample blur
-    vec2 texelSize = 1.0 / vec2(textureSize(colorTexture, 0));
-    vec4 blur = vec4(0.0);
-    for (int x = -2; x <= 2; x++) {
-      for (int y = -2; y <= 2; y++) {
-        vec2 offset = vec2(float(x), float(y)) * texelSize * 2.0;
-        vec4 sample_ = texture(colorTexture, v_textureCoordinates + offset);
-        float b = dot(sample_.rgb, vec3(0.2126, 0.7152, 0.0722));
-        if (b > bloomThreshold) blur += sample_;
-      }
-    }
-    blur /= 25.0;
-    
-    out_FragColor = color + blur * bloomIntensity;
+    vec2 ts = 1.0 / vec2(textureSize(colorTexture, 0)) * 2.0;
+
+    // 9-tap Gaussian: center + 4 axis + 4 diagonal (weighted)
+    vec4 blur = color * 0.25;
+    blur += texture(colorTexture, v_textureCoordinates + vec2( ts.x, 0.0)) * 0.125;
+    blur += texture(colorTexture, v_textureCoordinates + vec2(-ts.x, 0.0)) * 0.125;
+    blur += texture(colorTexture, v_textureCoordinates + vec2(0.0,  ts.y)) * 0.125;
+    blur += texture(colorTexture, v_textureCoordinates + vec2(0.0, -ts.y)) * 0.125;
+    blur += texture(colorTexture, v_textureCoordinates + vec2( ts.x,  ts.y)) * 0.0625;
+    blur += texture(colorTexture, v_textureCoordinates + vec2(-ts.x,  ts.y)) * 0.0625;
+    blur += texture(colorTexture, v_textureCoordinates + vec2( ts.x, -ts.y)) * 0.0625;
+    blur += texture(colorTexture, v_textureCoordinates + vec2(-ts.x, -ts.y)) * 0.0625;
+
+    // Extract bright pixels only
+    float brightness = dot(blur.rgb, vec3(0.2126, 0.7152, 0.0722));
+    vec4 bloom = brightness > bloomThreshold ? blur : vec4(0.0);
+
+    out_FragColor = color + bloom * bloomIntensity;
   }
 `;
 

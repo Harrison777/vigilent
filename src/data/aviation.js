@@ -4,7 +4,7 @@
  */
 import * as Cesium from 'cesium';
 import { getViewer } from '../core/globe.js';
-import { registerLayer } from '../core/layers.js';
+import { registerLayer, isLayerVisible } from '../core/layers.js';
 import { createAirplaneIcon } from './icons.js';
 
 const OPENSKY_URL = 'https://opensky-network.org/api/states/all';
@@ -224,6 +224,9 @@ function interpolatePositions() {
 
     entity.position = Cesium.Cartesian3.fromDegrees(newLon, newLat, Math.max(newAlt, 100));
   });
+
+  // Tell Cesium to re-render (requestRenderMode)
+  if (viewer.scene) viewer.scene.requestRender();
 }
 
 function renderFlights(states, category) {
@@ -262,7 +265,7 @@ function renderFlights(states, category) {
       lastUpdate: now,
     });
 
-    const iconCanvas = createAirplaneIcon(colorStr, heading, iconSize);
+    const iconCanvas = createAirplaneIcon(colorStr, Math.round(heading / 5) * 5, iconSize);
 
     let entity = viewer.entities.getById(entityId);
 
@@ -306,7 +309,12 @@ function renderFlights(states, category) {
       flightEntities.push(entityId);
     } else {
       entity.position = Cesium.Cartesian3.fromDegrees(longitude, latitude, alt);
-      entity.billboard.image = iconCanvas;
+      // Only update icon if heading changed ≥5°
+      const prevHeading = entity._lastHeading || 0;
+      if (Math.abs(heading - prevHeading) >= 5) {
+        entity.billboard.image = iconCanvas;
+        entity._lastHeading = heading;
+      }
     }
   });
 
@@ -322,6 +330,7 @@ function renderFlights(states, category) {
 }
 
 async function pollCommercial() {
+  if (!isLayerVisible('aviation-commercial')) return;
   const states = await fetchOpenSkyData();
   const commercial = states
     .filter(s => !isMilitaryFlight(s[1]))
@@ -331,6 +340,7 @@ async function pollCommercial() {
 }
 
 async function pollMilitary() {
+  if (!isLayerVisible('aviation-military')) return;
   const states = await fetchOpenSkyData();
   const military = states.filter(s => isMilitaryFlight(s[1]));
   renderFlights(military, 'military');
@@ -382,6 +392,7 @@ export function registerAviationLayers() {
         const e = getViewer()?.entities.getById(id);
         if (e) e.show = false;
       });
+      stopInterpolation();
     },
     update: () => {}
   });
@@ -415,6 +426,7 @@ export function registerAviationLayers() {
         const e = getViewer()?.entities.getById(id);
         if (e) e.show = false;
       });
+      stopInterpolation();
     },
     update: () => {}
   });

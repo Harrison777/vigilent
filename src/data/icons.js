@@ -91,10 +91,15 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
   const key = `ship-${color}-${Math.round(heading)}-${size}-${vesselType}`;
   if (iconCache.has(key)) return iconCache.get(key);
 
+  // HiDPI: render at 2x for crisp icons
+  const dpr = 2;
   const canvas = document.createElement('canvas');
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
   const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
   const cx = size / 2;
   const cy = size / 2;
   const scale = size / 28;
@@ -104,9 +109,21 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
   ctx.translate(cx, cy);
   ctx.rotate(((heading - 90) * Math.PI) / 180);
 
-  ctx.fillStyle = color;
+  // Minimal glow for sharpness
   ctx.shadowColor = color;
-  ctx.shadowBlur = 3 * scale;
+  ctx.shadowBlur = 1.5 * scale;
+
+  // Helper: draw hull outline for definition
+  function strokeHull() {
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 0.8 * scale;
+    ctx.stroke();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 1.5 * scale;
+  }
+
+  ctx.fillStyle = color;
 
   if (vesselType === 'military') {
     // Military vessel — sleek wedge shape
@@ -120,9 +137,11 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
     ctx.lineTo(4 * scale, 5 * scale);
     ctx.closePath();
     ctx.fill();
+    strokeHull();
 
     // Superstructure
     ctx.fillStyle = color;
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 0.5;
     ctx.fillRect(-4 * scale, -2.5 * scale, 6 * scale, 5 * scale);
     ctx.globalAlpha = 1.0;
@@ -138,8 +157,10 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
     ctx.lineTo(6 * scale, 6 * scale);
     ctx.closePath();
     ctx.fill();
+    strokeHull();
 
     // Tanks on deck
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 0.35;
     for (let i = -6; i <= 4; i += 4) {
       ctx.beginPath();
@@ -160,8 +181,10 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
     ctx.quadraticCurveTo(12 * scale, 4 * scale, 12 * scale, 0);
     ctx.closePath();
     ctx.fill();
+    strokeHull();
 
     // Decks
+    ctx.shadowBlur = 0;
     ctx.strokeStyle = color;
     ctx.globalAlpha = 0.3;
     ctx.lineWidth = 0.5 * scale;
@@ -184,8 +207,10 @@ export function createShipIcon(color, heading = 0, size = 28, vesselType = 'carg
     ctx.lineTo(5 * scale, 5 * scale);
     ctx.closePath();
     ctx.fill();
+    strokeHull();
 
     // Containers on deck
+    ctx.shadowBlur = 0;
     ctx.globalAlpha = 0.35;
     ctx.fillRect(-7 * scale, -3 * scale, 10 * scale, 6 * scale);
     ctx.globalAlpha = 1.0;

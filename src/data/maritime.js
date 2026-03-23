@@ -4,7 +4,7 @@
  */
 import * as Cesium from 'cesium';
 import { getViewer } from '../core/globe.js';
-import { registerLayer } from '../core/layers.js';
+import { registerLayer, isLayerVisible } from '../core/layers.js';
 import { createShipIcon } from './icons.js';
 
 let vesselEntities = [];
@@ -62,16 +62,16 @@ const SHIPPING_LANES = [
   // Strait of Malacca → South China Sea
   { name: 'Malacca Strait', density: 110, types: ['cargo','tanker'],
     waypoints: [[6,95],[4,99],[2.5,101],[1.5,103],[1.3,103.8]] },
-  { name: 'South China Sea', density: 100, types: ['cargo','tanker','military','fishing'],
-    waypoints: [[1.3,104],[5,108],[10,112],[15,114],[18,115],[22,114.2]] },
+   { name: 'South China Sea', density: 100, types: ['cargo','tanker','military','fishing'],
+    waypoints: [[1.3,104],[5,108],[10,112],[15,114],[18,115],[21,114.5]] },
   { name: 'SCS to Japan', density: 80, types: ['cargo','tanker'],
-    waypoints: [[22,114],[24,120],[26,122],[30,125],[33,130],[35,137],[35,140]] },
+    waypoints: [[21,114.5],[22,117],[23.5,118],[25,119],[26.5,122.5],[28,124],[30,126],[33,130],[35,137],[35,140]] },
   { name: 'Taiwan Strait', density: 60, types: ['cargo','military'],
-    waypoints: [[22,118],[23,119],[24,120],[25,121],[26,121.5]] },
+    waypoints: [[22.5,117],[23,117.5],[23.5,118],[24,118.5],[24.8,119],[25.5,119.5]] },
 
   // East China Sea / Korea / Japan
   { name: 'East China Sea', density: 70, types: ['cargo','tanker','fishing'],
-    waypoints: [[30,122],[32,124],[34,126],[35,128],[35.5,129.5]] },
+    waypoints: [[26.5,122.5],[28,124],[30,125],[32,126],[34,128],[35.5,129.5]] },
   { name: 'Sea of Japan', density: 40, types: ['cargo','fishing'],
     waypoints: [[35,130],[37,132],[39,134],[41,136],[43,140]] },
   { name: 'Tokyo Bay approach', density: 50, types: ['cargo','tanker','passenger'],
@@ -181,6 +181,122 @@ function generateShipName(type, index) {
 const FLAGS = ['PA','LR','MH','HK','SG','BS','BM','MT','CY','GR','NO','DK','JP','KR','CN','GB','US','DE','IT','FR','NL','ES','PT','TR','IN','ID','PH','TH','BR','RU'];
 
 /**
+ * Quick check if a point is likely on land (simplified bounding boxes for major landmasses)
+ * Returns true if point is probably on land
+ */
+function isLikelyOnLand(lat, lon) {
+  // Major landmass bounding boxes [latMin, latMax, lonMin, lonMax]
+  const LAND_BOXES = [
+    // North America mainland
+    [25, 72, -130, -60],
+    // Central America
+    [7, 25, -120, -80],
+    // South America
+    [-56, 12, -82, -34],
+    // Europe
+    [36, 71, -10, 40],
+    // Africa
+    [-35, 37, -18, 52],
+    // Middle East
+    [12, 42, 25, 60],
+    // India subcontinent
+    [8, 35, 68, 90],
+    // Southeast Asia mainland
+    [0, 28, 92, 110],
+    // China / East Asia inland
+    [22, 54, 100, 135],
+    // Korea
+    [34, 43, 125, 130],
+    // Japan main islands (rough, narrow)
+    [31, 41, 130, 141],
+    // Australia
+    [-39, -11, 113, 154],
+    // Indonesia main islands
+    [-8, 2, 95, 120],
+    // Philippines
+    [5, 19, 117, 127],
+    // UK
+    [50, 59, -6, 2],
+    // Scandinavia
+    [55, 71, 5, 30],
+    // Russia Siberia
+    [50, 75, 40, 180],
+    // Greenland
+    [60, 84, -73, -12],
+    // Madagascar
+    [-26, -12, 43, 50],
+    // New Zealand
+    [-47, -34, 166, 179],
+    // Taiwan
+    [22, 25.5, 120, 122],
+  ];
+
+  // Water exclusion zones (seas/gulfs/straits inside landmass boxes)
+  const WATER_BOXES = [
+    // Mediterranean Sea
+    [30, 46, -6, 36],
+    // Black Sea
+    [40.5, 47, 27, 42],
+    // Caspian Sea
+    [36, 47, 47, 55],
+    // Red Sea
+    [12, 30, 32, 44],
+    // Persian Gulf
+    [23, 31, 47, 57],
+    // Gulf of Mexico
+    [18, 31, -98, -80],
+    // Caribbean
+    [9, 23, -88, -60],
+    // Hudson Bay
+    [51, 64, -96, -77],
+    // Baltic Sea
+    [53, 66, 10, 30],
+    // Sea of Japan
+    [33, 52, 127, 142],
+    // South China Sea (deep)
+    [3, 22, 106, 120],
+    // Taiwan Strait
+    [22, 26, 116, 120],
+    // East China Sea
+    [24, 34, 119, 132],
+    // Yellow Sea
+    [32, 41, 117, 127],
+    // Bay of Bengal
+    [5, 22, 78, 95],
+    // Arabian Sea
+    [5, 25, 50, 78],
+    // Gulf of Thailand
+    [5, 14, 99, 106],
+    // Strait of Malacca / Java Sea
+    [-8, 6, 95, 117],
+    // English Channel / North Sea inner
+    [49, 56, -5, 9],
+    // Gulf of Guinea
+    [-5, 7, -5, 12],
+    // Mozambique Channel
+    [-28, -10, 34, 46],
+    // Coral Sea / Tasman Sea
+    [-35, -10, 145, 170],
+  ];
+
+  // First check if in a known water exclusion (override → it's water)
+  for (const [latMin, latMax, lonMin, lonMax] of WATER_BOXES) {
+    if (lat >= latMin && lat <= latMax && lon >= lonMin && lon <= lonMax) {
+      return false; // known water
+    }
+  }
+
+  // Then check if in any land box
+  for (const [latMin, latMax, lonMin, lonMax] of LAND_BOXES) {
+    if (lat >= latMin && lat <= latMax && lon >= lonMin && lon <= lonMax) {
+      return true; // likely on land
+    }
+  }
+
+  return false; // open ocean
+}
+
+/**
  * Generate fleet along shipping lanes
  */
 function generateFleet() {
@@ -198,9 +314,15 @@ function generateFleet() {
       const wp1 = waypoints[segIdx];
       const wp2 = waypoints[Math.min(segIdx + 1, waypoints.length - 1)];
 
-      // Interpolate between waypoints with lateral offset
-      const lat = wp1[0] + (wp2[0] - wp1[0]) * t + (seededRandom(id * 41 + i) - 0.5) * 1.5;
-      const lon = wp1[1] + (wp2[1] - wp1[1]) * t + (seededRandom(id * 53 + i) - 0.5) * 1.5;
+      // Interpolate between waypoints with TIGHT lateral offset (±0.5°, ~55km)
+      const lat = wp1[0] + (wp2[0] - wp1[0]) * t + (seededRandom(id * 41 + i) - 0.5) * 0.5;
+      const lon = wp1[1] + (wp2[1] - wp1[1]) * t + (seededRandom(id * 53 + i) - 0.5) * 0.5;
+
+      // Skip vessels that would end up on land
+      if (isLikelyOnLand(lat, lon)) {
+        id++;
+        continue;
+      }
 
       // Heading roughly follows lane direction
       const baseBearing = Math.atan2(wp2[1] - wp1[1], wp2[0] - wp1[0]) * 180 / Math.PI;
@@ -236,14 +358,19 @@ function generateFleet() {
   return fleet;
 }
 
+// Map of mmsi → { entity, lastRenderedHeading }
+const vesselEntityMap = new Map();
+
 function renderVessels(vessels) {
   const viewer = getViewer();
   if (!viewer) return;
 
+  // Remove old entities not in the new set
   vesselEntities.forEach(id => {
     try { viewer.entities.removeById(id); } catch (e) {}
   });
   vesselEntities = [];
+  vesselEntityMap.clear();
 
   vessels.forEach((v, i) => {
     const colorStr = VESSEL_COLORS[v.type] || VESSEL_COLORS.other;
@@ -253,7 +380,7 @@ function renderVessels(vessels) {
 
     const iconCanvas = createShipIcon(colorStr, heading, iconSize, v.type);
 
-    viewer.entities.add({
+    const entity = viewer.entities.add({
       id: entityId,
       name: v.name,
       position: Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 0),
@@ -287,16 +414,20 @@ function renderVessels(vessels) {
       }
     });
     vesselEntities.push(entityId);
+    vesselEntityMap.set(entityId, { entity, lastHeading: heading, type: v.type, color: colorStr });
   });
 
   console.log(`[MARITIME] Rendered ${vesselEntities.length} vessels worldwide`);
 }
 
 /**
- * Simulate ship movement — advance each ship along its heading
+ * Simulate ship movement — update positions IN-PLACE (no re-render)
  */
 function advanceFleet() {
-  generatedFleet.forEach(v => {
+  const viewer = getViewer();
+  if (!viewer) return;
+
+  generatedFleet.forEach((v, i) => {
     const headingRad = (v.heading || 0) * Math.PI / 180;
     const knotsToMs = 0.514444;
     const speedMs = v.speed * knotsToMs;
@@ -309,11 +440,29 @@ function advanceFleet() {
     v.lat += dLat;
     v.lon += dLon;
 
-    // Slight random heading drift (ships don't go perfectly straight)
+    // Slight random heading drift
     v.heading = (v.heading + (Math.random() - 0.5) * 2 + 360) % 360;
+
+    // Update entity in-place if layer is visible
+    if (isLayerVisible('maritime')) {
+      const entityId = `vessel-${v.mmsi || i}`;
+      const ref = vesselEntityMap.get(entityId);
+      if (ref && ref.entity) {
+        ref.entity.position = Cesium.Cartesian3.fromDegrees(v.lon, v.lat, 0);
+
+        // Only regenerate icon if heading changed >5°
+        const headingDelta = Math.abs(v.heading - ref.lastHeading);
+        if (headingDelta > 5) {
+          const iconSize = v.type === 'military' ? 34 : v.type === 'passenger' ? 30 : 24;
+          ref.entity.billboard.image = createShipIcon(ref.color, v.heading, iconSize, ref.type);
+          ref.lastHeading = v.heading;
+        }
+      }
+    }
   });
 
-  renderVessels(generatedFleet);
+  // Tell Cesium to re-render (requestRenderMode)
+  if (viewer.scene) viewer.scene.requestRender();
 }
 
 export function registerMaritimeLayer() {

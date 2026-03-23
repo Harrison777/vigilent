@@ -3,7 +3,7 @@
  */
 import * as Cesium from 'cesium';
 import { getViewer } from '../core/globe.js';
-import { registerLayer } from '../core/layers.js';
+import { registerLayer, isLayerVisible } from '../core/layers.js';
 
 const USGS_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary';
 let quakeEntities = [];
@@ -112,6 +112,7 @@ export function registerSeismicLayer() {
       const quakes = await fetchEarthquakes();
       renderQuakes(quakes);
       pollTimer = setInterval(async () => {
+        if (!isLayerVisible('seismic')) return;
         const q = await fetchEarthquakes();
         renderQuakes(q);
       }, 300000); // 5 min

@@ -310,6 +310,43 @@
     <div id="correlationBody"></div>
   </div>
 
+  <!-- Historical Navigator Stop List -->
+  <div id="navigatorStopList"></div>
+
+  <!-- Historical Navigator HUD (unified bottom bar — replaces timeline) -->
+  <div id="navigatorHUD">
+    <div class="nav-progress"><div class="nav-progress-fill"></div></div>
+    <div class="nav-header">
+      <span class="nav-title">Navigator</span>
+      <span class="nav-state"></span>
+    </div>
+    <div class="nav-controls">
+      <button class="nav-btn nav-btn-prev" title="Previous stop">
+        <span class="material-symbols-outlined">skip_previous</span>
+      </button>
+      <button class="nav-btn nav-btn-play" title="Play">
+        <span class="material-symbols-outlined">play_arrow</span>
+      </button>
+      <button class="nav-btn nav-btn-pause" title="Pause" style="display:none">
+        <span class="material-symbols-outlined">pause</span>
+      </button>
+      <button class="nav-btn nav-btn-next" title="Next stop">
+        <span class="material-symbols-outlined">skip_next</span>
+      </button>
+    </div>
+    <span class="nav-stop-info">1 / 1</span>
+    <div class="nav-lecture"></div>
+    <span class="nav-duration"></span>
+    <div class="nav-end-controls">
+      <button class="nav-btn nav-btn-mute" title="Toggle narration">
+        <span class="material-symbols-outlined">volume_up</span>
+      </button>
+      <button class="nav-btn nav-btn-close" title="End tour">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

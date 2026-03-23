@@ -3,6 +3,7 @@
  * Dual-mode search: location search ↔ AI research agent
  * Matches user prompts against current events, news, AND historical data
  * Places temporary markers on the map for all discovered items
+ * Integrates Historical Navigator for guided tour playback
  */
 import * as Cesium from 'cesium';
 import { GEOPOLITICAL_EVENTS } from '../geo/events.js';
@@ -12,6 +13,7 @@ import { showHistoricalTimeline, restoreNewsFeed } from './newsfeed.js';
 import { flyToLocation } from '../core/camera.js';
 import { getViewer } from '../core/globe.js';
 import { toggleLayer, getVisibleLayerIds } from '../core/layers.js';
+import { startNavigator, stopNavigator, isNavigatorActive } from './navigator.js';
 
 let agentMode = false;
 let agentPanel = null;
@@ -435,6 +437,19 @@ function renderBriefing(panel, results) {
     ? 'VIGILENT HISTORICAL ANALYSIS'
     : 'VIGILENT AGENT BRIEFING';
 
+  // Check if this qualifies for a guided tour (dominant era with 3+ events)
+  const eraCounts = {};
+  historical.forEach(h => { eraCounts[h.era] = (eraCounts[h.era] || 0) + 1; });
+  const dominantEra = Object.entries(eraCounts).sort((a, b) => b[1] - a[1])[0];
+  const canTour = isHistorical && dominantEra && dominantEra[1] >= 3;
+  const tourEvents = canTour ? historical.filter(h => h.era === dominantEra[0]) : [];
+  const tourHTML = canTour ? `
+    <button class="agent-tour-btn" id="startTourBtn">
+      <span class="material-symbols-outlined">explore</span>
+      START GUIDED TOUR — ${tourEvents.length} STOPS
+    </button>
+  ` : '';
+
   panel.innerHTML = `
     <div class="agent-briefing ${isHistorical ? 'agent-briefing-historical' : ''}">
       <div class="agent-briefing-header ${isHistorical ? 'agent-header-historical' : ''}">
@@ -443,12 +458,24 @@ function renderBriefing(panel, results) {
         <span class="agent-marker-badge">${totalMarkers} MAPPED</span>
       </div>
       <div class="agent-summary">${summary}</div>
+      ${tourHTML}
       ${eventsHTML}
       ${historicalHTML}
       ${newsHTML}
       ${regionsHTML}
     </div>
   `;
+
+  // Wire up guided tour button
+  if (canTour) {
+    const tourBtn = panel.querySelector('#startTourBtn');
+    if (tourBtn) {
+      tourBtn.addEventListener('click', () => {
+        panel.classList.add('hidden');
+        startNavigator(tourEvents, dominantEra[0]);
+      });
+    }
+  }
 
   // Wire up fly-to clicks
   panel.querySelectorAll('.agent-event-card').forEach(card => {

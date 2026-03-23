@@ -235,6 +235,10 @@ function startAnimation() {
       }
     });
 
+    // Tell Cesium to re-render (requestRenderMode)
+    const v = getViewer();
+    if (v?.scene) v.scene.requestRender();
+
     animFrame = requestAnimationFrame(animate);
   }
 

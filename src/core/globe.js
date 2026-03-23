@@ -32,14 +32,14 @@ export async function initGlobe() {
     selectionIndicator: false,
     navigationHelpButton: false,
     sceneModePicker: false,
-    // Performance — render continuously for data layers
-    requestRenderMode: false,
-    maximumRenderTimeChange: Infinity,
+    // Performance — only re-render when scene changes (huge FPS win)
+    requestRenderMode: true,
+    maximumRenderTimeChange: 0.0,   // still re-render on clock ticks
     // Credits
     creditContainer: document.createElement('div'),
     // Terrain
     terrain: undefined,
-    // Globe rendering performance
+    // GPU performance
     msaaSamples: 1,
   });
 
@@ -85,11 +85,11 @@ export async function initGlobe() {
   // ── SCENE PERFORMANCE ─────────────────────────────────────
   const scene = viewer.scene;
 
-  // Enable faster rendering
-  scene.globe.tileCacheSize = 200;                  // cache more tiles
-  scene.globe.maximumScreenSpaceError = 2;          // default 2, lower = sharper
+  // Tile budget — balance quality vs speed
+  scene.globe.tileCacheSize = 100;                  // lower memory footprint
+  scene.globe.maximumScreenSpaceError = 4;          // fewer tiles at distance (barely visible)
   scene.globe.preloadAncestors = true;
-  scene.globe.preloadSiblings = true;
+  scene.globe.preloadSiblings = false;              // don't fetch 8 neighbors per tile
 
   // Use GPU picking for faster click detection
   scene.pickTranslucentDepth = false;

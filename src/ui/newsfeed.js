@@ -1,92 +1,115 @@
 /**
- * newsfeed.js — Collapsible world news feed panel on the right side
- * Generates procedural breaking news headlines that rotate periodically
+ * newsfeed.js — Live world news feed panel on the right side
+ * Pulls real headlines from Google News RSS via RSS2JSON proxy
+ * Falls back to simulated headlines if offline or rate-limited
  */
 
 let feedPanel = null;
 let updateInterval = null;
 let isCollapsed = false;
+let liveNews = [];        // cached live stories
+let lastFetchTime = 0;
 
-// ── News headline templates — realistic geopolitical/finance headlines ──
-export const HEADLINE_TEMPLATES = [
-  // Iran / Middle East
-  { cat: 'BREAKING', text: 'IRGC confirms damage to Isfahan military complex, vows retaliation', region: 'Iran', icon: '🔴', priority: 'urgent', lat: 32.654, lon: 51.668,
-    image: 'https://images.unsplash.com/photo-1580894908361-967195033215?w=400&h=200&fit=crop' },
-  { cat: 'CONFLICT', text: 'Israeli jets intercept Iranian UAV swarm over Golan Heights', region: 'Middle East', icon: '⚔️', priority: 'high', lat: 33.00, lon: 35.80,
-    image: 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=400&h=200&fit=crop' },
-  { cat: 'BREAKING', text: 'Tehran announces closure of Strait of Hormuz to "hostile vessels"', region: 'Iran', icon: '🔴', priority: 'urgent', lat: 26.56, lon: 56.25,
-    image: 'https://images.unsplash.com/photo-1605281317010-fe5ffe798166?w=400&h=200&fit=crop' },
-  { cat: 'DEFENSE', text: 'Pentagon deploys additional carrier group to Persian Gulf', region: 'USA', icon: '🚢', priority: 'high', lat: 26.00, lon: 52.00,
-    image: 'https://images.unsplash.com/photo-1569974507005-6dc61f97fb5c?w=400&h=200&fit=crop' },
-  { cat: 'DIPLOMATIC', text: 'China and Russia block UNSC resolution on Iran sanctions', region: 'UN', icon: '🏛️', priority: 'medium', lat: 40.749, lon: -73.968,
-    image: 'https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?w=400&h=200&fit=crop' },
-  { cat: 'MARKETS', text: 'Brent crude surges past $85 on Strait of Hormuz closure threat', region: 'Global', icon: '📈', priority: 'high', lat: 51.507, lon: -0.128,
-    image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=400&h=200&fit=crop' },
-  { cat: 'INTEL', text: 'Satellite imagery reveals new IRGC missile deployments near Bushehr', region: 'Iran', icon: '🛰️', priority: 'high', lat: 28.922, lon: 50.836,
-    image: 'https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=400&h=200&fit=crop' },
-  { cat: 'CONFLICT', text: 'Hezbollah launches largest-ever rocket barrage into northern Israel', region: 'Lebanon', icon: '⚔️', priority: 'urgent', lat: 33.27, lon: 35.20,
-    image: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=400&h=200&fit=crop' },
+// ── RSS2JSON proxy (free, CORS-safe, no key needed for basic use) ──
+const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
-  // Ukraine-Russia
-  { cat: 'CONFLICT', text: 'Russia launches 50+ Shahed drones at Ukrainian energy infrastructure', region: 'Ukraine', icon: '⚔️', priority: 'high', lat: 50.45, lon: 30.52,
-    image: 'https://images.unsplash.com/photo-1646975033569-1a1fd0a6e2b6?w=400&h=200&fit=crop' },
-  { cat: 'DEFENSE', text: 'Germany approves €3.2B Leopard 2 tank package for Ukraine', region: 'Europe', icon: '🪖', priority: 'medium', lat: 52.52, lon: 13.405,
-    image: 'https://images.unsplash.com/photo-1563396983906-b3795482a59a?w=400&h=200&fit=crop' },
-  { cat: 'BREAKING', text: 'Ukrainian forces advance 8km in Zaporizhzhia counter-offensive', region: 'Ukraine', icon: '🔴', priority: 'high', lat: 47.839, lon: 35.14,
-    image: 'https://images.unsplash.com/photo-1580752300992-559f8e0734e0?w=400&h=200&fit=crop' },
-
-  // Asia-Pacific
-  { cat: 'ALERT', text: 'PLA conducts live-fire exercises 12nm from Taiwan coast', region: 'Taiwan Strait', icon: '⚠️', priority: 'high', lat: 24.50, lon: 119.50,
-    image: 'https://images.unsplash.com/photo-1580894732444-8ecded7900cd?w=400&h=200&fit=crop' },
-  { cat: 'DIPLOMATIC', text: 'Japan, Philippines, USA announce trilateral security framework', region: 'Asia-Pacific', icon: '🏛️', priority: 'medium', lat: 35.68, lon: 139.69,
-    image: 'https://images.unsplash.com/photo-1541872703-74c5e44368f9?w=400&h=200&fit=crop' },
-  { cat: 'DEFENSE', text: 'North Korea tests new solid-fuel ICBM, splashes into Sea of Japan', region: 'Korean Peninsula', icon: '🚀', priority: 'urgent', lat: 39.02, lon: 125.75,
-    image: 'https://images.unsplash.com/photo-1457364887197-9f4dacfa57b3?w=400&h=200&fit=crop' },
-
-  // Markets & Economy
-  { cat: 'MARKETS', text: 'Gold hits all-time high at $3,100/oz amid global uncertainty', region: 'Global', icon: '📈', priority: 'medium', lat: 51.507, lon: -0.128,
-    image: 'https://images.unsplash.com/photo-1610375461246-83df859d849d?w=400&h=200&fit=crop' },
-  { cat: 'MARKETS', text: 'NASDAQ drops 2.3% on escalation fears, defense stocks surge', region: 'USA', icon: '📉', priority: 'medium', lat: 40.706, lon: -74.009,
-    image: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=400&h=200&fit=crop' },
-  { cat: 'ECONOMY', text: 'EU approves emergency energy security measures as oil prices spike', region: 'Europe', icon: '⚡', priority: 'medium', lat: 50.851, lon: 4.367,
-    image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=400&h=200&fit=crop' },
-  { cat: 'MARKETS', text: 'USD/JPY breaks 150 barrier as safe-haven flows accelerate', region: 'Global', icon: '💱', priority: 'medium', lat: 35.68, lon: 139.69,
-    image: 'https://images.unsplash.com/photo-1642790106117-e829e14a795f?w=400&h=200&fit=crop' },
-
-  // Other
-  { cat: 'CYBER', text: 'Major DDoS attacks hit NATO member banking systems', region: 'Europe', icon: '💻', priority: 'high', lat: 50.85, lon: 4.35,
-    image: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&h=200&fit=crop' },
-  { cat: 'HUMANITARIAN', text: 'UNHCR warns of 2M displaced in latest Iran-region escalation', region: 'Middle East', icon: '🆘', priority: 'medium', lat: 46.236, lon: 6.14,
-    image: 'https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?w=400&h=200&fit=crop' },
-  { cat: 'ALERT', text: 'NORAD detects unusual Russian bomber activity near Alaska ADIZ', region: 'Arctic', icon: '⚠️', priority: 'high', lat: 61.22, lon: -149.90,
-    image: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=400&h=200&fit=crop' },
-  { cat: 'SEISMIC', text: 'M6.2 earthquake strikes central Turkey, reports of structural damage', region: 'Turkey', icon: '🌍', priority: 'high', lat: 39.93, lon: 32.86,
-    image: 'https://images.unsplash.com/photo-1545873209-348b4a826588?w=400&h=200&fit=crop' },
-  { cat: 'DIPLOMATIC', text: 'India offers to mediate Iran-Israel ceasefire, hosts emergency talks', region: 'India', icon: '🏛️', priority: 'medium', lat: 28.614, lon: 77.209,
-    image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=400&h=200&fit=crop' },
-  { cat: 'INTEL', text: 'OSINT analysts identify new Russian S-400 deployments in Syria', region: 'Syria', icon: '🛰️', priority: 'medium', lat: 35.00, lon: 38.00,
-    image: 'https://images.unsplash.com/photo-1517976547714-720226b864c1?w=400&h=200&fit=crop' },
+// ── Google News RSS search topics — each returns ~10 stories ──
+const NEWS_TOPICS = [
+  { query: 'military+conflict+war',      cat: 'CONFLICT',   icon: '⚔️', priority: 'high' },
+  { query: 'defense+military+troops',    cat: 'DEFENSE',    icon: '🪖', priority: 'medium' },
+  { query: 'geopolitics+sanctions+diplomacy', cat: 'DIPLOMATIC', icon: '🏛️', priority: 'medium' },
+  { query: 'stock+market+economy+oil',   cat: 'MARKETS',    icon: '📈', priority: 'medium' },
+  { query: 'cybersecurity+attack+hack',  cat: 'CYBER',      icon: '💻', priority: 'high' },
+  { query: 'missile+nuclear+weapons',    cat: 'ALERT',      icon: '⚠️', priority: 'urgent' },
+  { query: 'NATO+Russia+China+Iran',     cat: 'BREAKING',   icon: '🔴', priority: 'urgent' },
 ];
 
 /**
- * Generate a pool of news items with realistic timestamps
+ * Fetch live news from Google News RSS
  */
-function generateNewsPool() {
-  // Shuffle and pick 12 headlines to show
-  const shuffled = [...HEADLINE_TEMPLATES].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, 12);
-  
-  return selected.map((item, i) => {
-    const minutesAgo = Math.floor(Math.random() * 180) + i * 15; // stagger by ~15 min per item
-    return {
-      ...item,
-      time: formatTimeAgo(minutesAgo),
-      minutesAgo
-    };
-  }).sort((a, b) => a.minutesAgo - b.minutesAgo); // most recent first
+async function fetchLiveNews() {
+  const allStories = [];
+
+  // Fetch all topics in parallel
+  const fetches = NEWS_TOPICS.map(async (topic) => {
+    const rssUrl = encodeURIComponent(
+      `https://news.google.com/rss/search?q=${topic.query}&hl=en-US&gl=US&ceid=US:en`
+    );
+    try {
+      const res = await fetch(`${RSS2JSON}${rssUrl}`, { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (data.status !== 'ok' || !data.items) return [];
+
+      return data.items.slice(0, 5).map(item => {
+        // Extract source name from title (Google News format: "Headline - Source")
+        const titleParts = item.title.split(' - ');
+        const source = titleParts.length > 1 ? titleParts.pop().trim() : 'News';
+        const headline = titleParts.join(' - ').trim();
+
+        return {
+          cat: topic.cat,
+          icon: topic.icon,
+          priority: topic.priority,
+          text: headline,
+          source: source,
+          url: item.link || '#',
+          pubDate: new Date(item.pubDate),
+          region: source.toUpperCase(),
+          image: item.thumbnail || item.enclosure?.link || null,
+        };
+      });
+    } catch {
+      return [];
+    }
+  });
+
+  const results = await Promise.all(fetches);
+  results.forEach(stories => allStories.push(...stories));
+
+  // Sort by publication date (most recent first) and dedupe
+  const seen = new Set();
+  const unique = allStories
+    .sort((a, b) => b.pubDate - a.pubDate)
+    .filter(s => {
+      const key = s.text.substring(0, 50);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+  return unique.slice(0, 20); // top 20 stories
 }
 
-function formatTimeAgo(minutes) {
+// ── Fallback simulated headlines (used when offline) ──
+const FALLBACK_HEADLINES = [
+  { cat: 'BREAKING', text: 'IRGC confirms damage to Isfahan military complex, vows retaliation', region: 'IRAN', icon: '🔴', priority: 'urgent',
+    url: 'https://news.google.com/search?q=IRGC+Isfahan+military' },
+  { cat: 'CONFLICT', text: 'Israeli jets intercept Iranian UAV swarm over Golan Heights', region: 'MIDDLE EAST', icon: '⚔️', priority: 'high',
+    url: 'https://news.google.com/search?q=Israel+Iran+UAV+Golan+Heights' },
+  { cat: 'DEFENSE', text: 'Pentagon deploys additional carrier group to Persian Gulf', region: 'USA', icon: '🚢', priority: 'high',
+    url: 'https://news.google.com/search?q=Pentagon+carrier+group+Persian+Gulf' },
+  { cat: 'MARKETS', text: 'Brent crude surges past $85 on Strait of Hormuz closure threat', region: 'GLOBAL', icon: '📈', priority: 'high',
+    url: 'https://news.google.com/search?q=Brent+crude+oil+price' },
+  { cat: 'CONFLICT', text: 'Russia launches 50+ Shahed drones at Ukrainian energy infrastructure', region: 'UKRAINE', icon: '⚔️', priority: 'high',
+    url: 'https://news.google.com/search?q=Russia+Shahed+drones+Ukraine' },
+  { cat: 'ALERT', text: 'PLA conducts live-fire exercises 12nm from Taiwan coast', region: 'TAIWAN STRAIT', icon: '⚠️', priority: 'high',
+    url: 'https://news.google.com/search?q=China+PLA+Taiwan+exercises' },
+  { cat: 'CYBER', text: 'Major DDoS attacks hit NATO member banking systems', region: 'EUROPE', icon: '💻', priority: 'high',
+    url: 'https://news.google.com/search?q=DDoS+NATO+banking' },
+  { cat: 'DIPLOMATIC', text: 'India offers to mediate Iran-Israel ceasefire, hosts emergency talks', region: 'INDIA', icon: '🏛️', priority: 'medium',
+    url: 'https://news.google.com/search?q=India+Iran+Israel+ceasefire' },
+];
+
+// Keep HEADLINE_TEMPLATES export for backward compatibility
+export const HEADLINE_TEMPLATES = FALLBACK_HEADLINES;
+
+/**
+ * Format time ago from a Date object
+ */
+function formatTimeAgo(date) {
+  if (!(date instanceof Date) || isNaN(date)) return '';
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60000);
   if (minutes < 1) return 'JUST NOW';
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
@@ -112,7 +135,9 @@ function createNewsFeed() {
         <span class="material-symbols-outlined">chevron_right</span>
       </button>
     </div>
-    <div class="news-feed-body" id="newsFeedBody"></div>
+    <div class="news-feed-body" id="newsFeedBody">
+      <div class="news-loading">Fetching live stories…</div>
+    </div>
   `;
 
   document.body.appendChild(feedPanel);
@@ -127,41 +152,103 @@ function createNewsFeed() {
 }
 
 /**
- * Render news headlines into the feed
+ * Render news headlines into the feed (live or fallback)
  */
-function renderNews() {
+async function renderNews() {
   const body = document.getElementById('newsFeedBody');
   if (!body) return;
 
-  const news = generateNewsPool();
+  let news = [];
+
+  // Try fetching live news (rate-limit to every 3 min)
+  if (Date.now() - lastFetchTime > 180000 || liveNews.length === 0) {
+    try {
+      body.innerHTML = '<div class="news-loading">Updating…</div>';
+      const live = await fetchLiveNews();
+      if (live.length > 0) {
+        liveNews = live;
+        lastFetchTime = Date.now();
+        console.log(`[NEWS] ✓ ${live.length} live stories from Google News`);
+      }
+    } catch (e) {
+      console.warn('[NEWS] Live fetch failed, using cache/fallback', e);
+    }
+  }
+
+  // Use live or fallback
+  if (liveNews.length > 0) {
+    news = liveNews.map(item => ({
+      ...item,
+      time: formatTimeAgo(item.pubDate),
+    }));
+  } else {
+    // Fallback: simulated headlines
+    news = FALLBACK_HEADLINES.map((item, i) => ({
+      ...item,
+      time: `${Math.floor(Math.random() * 3) + 1}h ago`,
+      source: 'VIGILENT Intel',
+    }));
+  }
 
   body.innerHTML = news.map(item => {
     const priorityClass = item.priority === 'urgent' ? 'news-urgent' : item.priority === 'high' ? 'news-high' : 'news-normal';
-    const imageHTML = item.image
-      ? `<div class="news-item-image"><img src="${item.image}" alt="" loading="lazy" /></div>`
-      : '';
+    const sourceTag = item.source ? `<span class="news-source">${item.source}</span>` : '';
     return `
-      <div class="news-item ${priorityClass}">
-        ${imageHTML}
-        <div class="news-item-header">
-          <span class="news-cat">${item.cat}</span>
-          <span class="news-time">${item.time}</span>
+      <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="news-item-link">
+        <div class="news-item ${priorityClass}">
+          <div class="news-item-header">
+            <span class="news-cat">${item.cat}</span>
+            <span class="news-time">${item.time}</span>
+          </div>
+          <div class="news-item-text">${item.icon} ${item.text}</div>
+          <div class="news-item-region">${item.region} ${sourceTag}</div>
         </div>
-        <div class="news-item-text">${item.icon} ${item.text}</div>
-        <div class="news-item-region">${item.region}</div>
-      </div>
+      </a>
     `;
   }).join('');
 }
 
 /**
- * Initialize the news feed
+ * Initialize the news feed — instant fallback, deferred live fetch
  */
 export function initNewsFeed() {
   createNewsFeed();
-  renderNews();
-  // Refresh headlines every 2 minutes
-  updateInterval = setInterval(renderNews, 120000);
+  // Show fallback headlines INSTANTLY (no network wait)
+  renderFallbackNews();
+  // Background: fetch live news after 3s, then refresh every 5 min
+  setTimeout(async () => {
+    await renderNews();
+    updateInterval = setInterval(renderNews, 300000);
+  }, 3000);
+}
+
+/**
+ * Render fallback headlines immediately (no async, no network)
+ */
+function renderFallbackNews() {
+  const body = document.getElementById('newsFeedBody');
+  if (!body) return;
+  const news = FALLBACK_HEADLINES.map(item => ({
+    ...item,
+    time: `${Math.floor(Math.random() * 3) + 1}h ago`,
+    source: 'VIGILENT Intel',
+  }));
+  body.innerHTML = news.map(item => {
+    const priorityClass = item.priority === 'urgent' ? 'news-urgent' : item.priority === 'high' ? 'news-high' : 'news-normal';
+    const sourceTag = item.source ? `<span class="news-source">${item.source}</span>` : '';
+    return `
+      <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="news-item-link">
+        <div class="news-item ${priorityClass}">
+          <div class="news-item-header">
+            <span class="news-cat">${item.cat}</span>
+            <span class="news-time">${item.time}</span>
+          </div>
+          <div class="news-item-text">${item.icon} ${item.text}</div>
+          <div class="news-item-region">${item.region} ${sourceTag}</div>
+        </div>
+      </a>
+    `;
+  }).join('');
 }
 
 /**

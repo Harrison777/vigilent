@@ -6,6 +6,7 @@ import './styles/index.css';
 import './styles/panels.css';
 import './styles/timeline.css';
 import './styles/agent.css';
+import './styles/navigator.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import * as Cesium from 'cesium';
 
@@ -216,7 +217,7 @@ function startHUDUpdates() {
       if (statEls.events)      statEls.events.textContent = events;
     };
 
-    setInterval(updateStats, 3000);
+    setInterval(updateStats, 5000);
     setTimeout(updateStats, 2000); // Initial update after layers load
   }
 }

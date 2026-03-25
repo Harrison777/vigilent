@@ -5,6 +5,8 @@
  */
 import * as Cesium from 'cesium';
 import { getViewer } from '../core/globe.js';
+import { ttsService } from '../services/tts.js';
+import { audio } from '../services/audio.js';
 
 // ════════════════════════════════════════════════════════════════
 // NARRATIVE VOICE — transforms raw data into storytelling text
@@ -65,47 +67,352 @@ function createMarkerCanvas(icon, bgColor, size = 64) {
   return canvas;
 }
 
-/** Time-based transition phrases linking two stops */
-function getTransition(prevStop, curStop, index) {
+// ── Direction & Geography helpers ──
+
+function getCompassDir(fromCoords, toCoords) {
+  const dLat = toCoords.lat - fromCoords.lat;
+  const dLng = toCoords.lng - fromCoords.lng;
+  const angle = Math.atan2(dLng, dLat) * 180 / Math.PI;
+  if (angle > -22.5 && angle <= 22.5) return 'north';
+  if (angle > 22.5 && angle <= 67.5) return 'northeast';
+  if (angle > 67.5 && angle <= 112.5) return 'east';
+  if (angle > 112.5 && angle <= 157.5) return 'southeast';
+  if (angle > 157.5 || angle <= -157.5) return 'south';
+  if (angle > -157.5 && angle <= -112.5) return 'southwest';
+  if (angle > -112.5 && angle <= -67.5) return 'west';
+  return 'northwest';
+}
+
+function getDistanceDeg(a, b) {
+  const dLat = Math.abs(b.lat - a.lat);
+  const dLon = Math.abs(b.lng - a.lng);
+  return Math.sqrt(dLat * dLat + dLon * dLon);
+}
+
+/** Identify the climax stop (most dramatic battle) in a sequence */
+function findClimaxIndex(events) {
+  const battleTypes = new Set(['battle', 'siege', 'conquest']);
+  let best = -1, bestScore = 0;
+  events.forEach((ev, i) => {
+    if (i === 0 || i === events.length - 1) return; // skip first/last
+    let score = battleTypes.has(ev.type) ? 3 : 0;
+    score += (ev.parties?.length || 0);
+    if (ev.description?.length > 60) score += 1;
+    if (score > bestScore) { bestScore = score; best = i; }
+  });
+  return best;
+}
+
+/** Pick a random element from an array */
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+// ── ERA-SPECIFIC VOCABULARY ──────────────────────────────────
+const ERA_VOCAB = {
+  'Ancient Egypt':       { warriors: 'warriors', forces: 'armies of the pharaoh', weapon: 'bronze', land: 'the land of the Nile', verb: 'marched', clash: 'clashed' },
+  'Ancient Greece':      { warriors: 'hoplites', forces: 'phalanxes', weapon: 'iron-tipped spears', land: 'Hellas', verb: 'advanced', clash: 'collided' },
+  'Alexander the Great': { warriors: 'Companion cavalry', forces: 'the Macedonian war machine', weapon: 'the sarissa', land: 'the known world', verb: 'pressed onward', clash: 'smashed into' },
+  'Roman Empire':        { warriors: 'legionaries', forces: 'the legions of Rome', weapon: 'the gladius', land: 'the Roman world', verb: 'marched', clash: 'clashed' },
+  'Viking Age':          { warriors: 'Norse raiders', forces: 'the longship fleet', weapon: 'axes and shields', land: 'the northern seas', verb: 'sailed', clash: 'fell upon' },
+  'Crusades':            { warriors: 'crusaders', forces: 'the armies of Christendom', weapon: 'the longsword', land: 'the Holy Land', verb: 'rode', clash: 'threw themselves against' },
+  'Mongol Empire':       { warriors: 'Mongol horsemen', forces: 'the horde', weapon: 'the composite bow', land: 'the steppe', verb: 'thundered', clash: 'swept through' },
+  'Ottoman Empire':      { warriors: 'janissaries', forces: 'the Ottoman host', weapon: 'cannon and musket', land: 'the crescent empire', verb: 'advanced', clash: 'besieged' },
+  'Napoleonic Wars':     { warriors: 'regiments', forces: 'the Grande Armée', weapon: 'artillery', land: 'the continent', verb: 'marched', clash: 'engaged' },
+  'American Revolution': { warriors: 'minutemen', forces: 'the Continental Army', weapon: 'muskets', land: 'the colonies', verb: 'rallied', clash: 'stood against' },
+  'American Civil War':  { warriors: 'battalions', forces: 'Union and Confederate forces', weapon: 'rifle and cannon', land: 'a nation divided', verb: 'advanced', clash: 'met in a fury' },
+  'World War I':         { warriors: 'divisions', forces: 'the allied powers', weapon: 'machine guns and gas', land: 'the Western Front', verb: 'pushed through', clash: 'ground against' },
+  'World War II':        { warriors: 'armored divisions', forces: 'Allied and Axis forces', weapon: 'tanks and airpower', land: 'the theatre of war', verb: 'surged forward', clash: 'collided' },
+  'Cold War':            { warriors: 'special forces', forces: 'superpower proxies', weapon: 'jets and missiles', land: 'the Iron Curtain', verb: 'deployed', clash: 'confronted' },
+};
+const DEFAULT_VOCAB = { warriors: 'soldiers', forces: 'the assembled armies', weapon: 'weapons of war', land: 'the region', verb: 'advanced', clash: 'clashed' };
+
+function getVocab(era) { return ERA_VOCAB[era] || DEFAULT_VOCAB; }
+
+// ── DIRECTIONAL MOVEMENT ─────────────────────────────────────
+const DIR_PHRASES = {
+  north:     ['northward through the mountain passes', 'toward the frozen north', 'up through the heartland'],
+  northeast: ['northeast across the frontier', 'toward the northeast horizon', 'cutting northeast through the wilderness'],
+  east:      ['east toward the rising sun', 'eastward into uncharted territory', 'toward the dawn'],
+  southeast: ['southeast through the lowlands', 'down toward the southeast coast', 'into the southeast corridor'],
+  south:     ['southward across the plains', 'sweeping south', 'pushing toward the southern reaches'],
+  southwest: ['southwest through the hills', 'angling southwest', 'toward the southwest frontier'],
+  west:      ['westward under darkening skies', 'toward the setting sun', 'pressing west'],
+  northwest: ['northwest through the forests', 'toward the northwest passage', 'cutting northwest'],
+};
+
+function getDirPhrase(dir) { return pick(DIR_PHRASES[dir] || [`toward ${dir}`]); }
+
+// ── TRANSITIONS (5+ per time-gap category) ──────────────────
+
+function getTransition(prevStop, curStop, index, isClimax) {
   if (index === 0) return '';
 
   const prevYear = parseYearNum(prevStop.year);
-  const curYear = parseYearNum(curStop.year);
+  const curYear  = parseYearNum(curStop.year);
   const gap = Math.abs(curYear - prevYear);
-
-  // Distance-based context
-  const dLat = Math.abs(curStop.coordinates.lat - prevStop.coordinates.lat);
-  const dLon = Math.abs(curStop.coordinates.lng - prevStop.coordinates.lng);
-  const dist = Math.sqrt(dLat * dLat + dLon * dLon);
+  const dir = getCompassDir(prevStop.coordinates, curStop.coordinates);
+  const dist = getDistanceDeg(prevStop.coordinates, curStop.coordinates);
   const farAway = dist > 8;
+  const dirPhrase = getDirPhrase(dir);
 
-  // Build transition
-  if (gap === 0) {
-    if (farAway) return `That same year, far to the ${curStop.coordinates.lng > prevStop.coordinates.lng ? 'east' : 'west'}, `;
-    return 'In the same year, ';
+  // Climax — maximum drama
+  if (isClimax) {
+    return pick([
+      `Then came the moment everything hinged upon. `,
+      `What followed would become the turning point — the hinge of fate. `,
+      `And then — the decisive hour arrived. `,
+      `History was about to pivot on a single day. `,
+      `The stage was set for the battle that would decide everything. `,
+    ]);
   }
-  if (gap === 1) return farAway ? 'The following year, having marched onward, ' : 'One year later, ';
-  if (gap <= 3) return `${gap} years later, `;
-  if (gap <= 10) return `After ${gap} years, `;
-  return `${gap} years would pass before `;
+
+  // Same year
+  if (gap === 0) {
+    return farAway ? pick([
+      `That same year, ${dirPhrase}, `,
+      `Before the year was out, forces moved ${dirPhrase}, where `,
+      `Still in that fateful year — now ${dirPhrase} — `,
+      `The ink had barely dried when, ${dirPhrase}, `,
+    ]) : pick([
+      'That same year, not far from the last, ',
+      'Before the dust had settled, ',
+      'Almost simultaneously, ',
+      'In that very same year, ',
+      'Events moved quickly — ',
+    ]);
+  }
+
+  // 1 year
+  if (gap === 1) {
+    return farAway ? pick([
+      `The following year, ${dirPhrase}, `,
+      `One year later, having pressed ${dirPhrase}, `,
+      `When the next spring came, ${dirPhrase}, `,
+      `A year would pass. Then, ${dirPhrase}, `,
+    ]) : pick([
+      'One year later, ',
+      'The following spring, ',
+      'When the next year dawned, ',
+      'Twelve months later, ',
+    ]);
+  }
+
+  // 2-5 years
+  if (gap <= 5) {
+    return farAway ? pick([
+      `${gap} years later, having campaigned ${dirPhrase}, `,
+      `After ${gap} years of consolidation, the march continued ${dirPhrase}, where `,
+      `${gap} years of preparation culminated ${dirPhrase}, when `,
+      `The next ${gap} years reshaped the map. ${dirPhrase.charAt(0).toUpperCase() + dirPhrase.slice(1)}, `,
+    ]) : pick([
+      `${gap} years later, `,
+      `In the ${gap} years that followed, `,
+      `After ${gap} years of uneasy peace, `,
+      `${gap} years would pass before `,
+    ]);
+  }
+
+  // 6-20 years
+  if (gap <= 20) {
+    return pick([
+      `After ${gap} long years, `,
+      `Nearly ${gap === 10 ? 'a decade' : gap + ' years'} of consolidation ended when `,
+      `${gap} years of preparation would lead to `,
+      `A generation shaped by those ${gap} years would witness `,
+      `The world had changed in those ${gap} years. Now, `,
+    ]);
+  }
+
+  // 20+ years
+  return pick([
+    `Decades would pass — ${gap} years, to be precise — before `,
+    `${gap} years. A lifetime. And then, `,
+    `More than ${Math.floor(gap / 10)} decades of silence broken when `,
+    `History waited ${gap} years for its next chapter. `,
+    `The world turned for ${gap} years. Then, `,
+  ]);
 }
 
-/** Build a narrative lecture from an event, with storytelling transitions */
-function buildNarrative(event, prevStop, index, totalStops) {
-  const transition = getTransition(prevStop, event, index);
+// ── OPENINGS ─────────────────────────────────────────────────
 
-  // Opening narration for the first stop
+const OPENERS_SHORT = [
+  (ev) => `${ev.year}. ${ev.region || 'The stage is set'}. ${ev.description}.`,
+  (ev) => `${ev.year} — ${ev.description}.`,
+  (ev) => `It begins: ${ev.year}. ${ev.description}.`,
+];
+
+const OPENERS_MEDIUM = [
+  (ev, v, region) => `The year is ${ev.year}. In ${region}, ${ev.description}. ${v.forces} stand ready — and the world is about to change.`,
+  (ev, v, region) => `Our story opens in ${ev.year}, in ${region}. ${ev.description}. What follows will reshape the map of the known world.`,
+  (ev, v, region) => `Picture this — ${region}, ${ev.year}. ${ev.description}. A chain of events is about to unfold that history will never forget.`,
+  (ev, v, region) => `We begin in the year ${ev.year}. ${ev.description}. Across ${region}, ${v.warriors} prepare for what lies ahead.`,
+  (ev, v, region) => `${ev.year}. ${region}. ${ev.description}. From this moment, there is no turning back.`,
+];
+
+const OPENERS_LONG = [
+  (ev, v, region, parties) => `Close your eyes and imagine ${region}, the year ${ev.year}. The air is thick with tension. ${ev.description}. ${parties ? `${parties} face each other across a landscape that will soon be forever changed.` : `${v.forces} have assembled, and what comes next will echo through the centuries.`} The stakes could not be higher.`,
+  (ev, v, region, parties) => `The year is ${ev.year}. In ${region}, a powder keg is about to ignite. ${ev.description}. ${parties ? `The fate of ${parties} — and perhaps of ${v.land} itself — hangs in the balance.` : `${v.forces} stand at a crossroads that will define an age.`} No one alive that day could have predicted what was to come.`,
+  (ev, v, region, parties) => `${ev.year}. To understand what happens next, you must first understand ${region} — a land shaped by generations of conflict and ambition. ${ev.description}. ${parties ? `Here, ${parties} will write a chapter in blood and iron.` : `Here, ${v.warriors} will be tested as never before.`} This is where it all begins.`,
+];
+
+// ── CLOSINGS ─────────────────────────────────────────────────
+
+const CLOSERS_SHORT = [
+  (ev) => `${ev.year} — ${ev.description}. The chapter closes.`,
+  (ev) => `And finally: ${ev.year}. ${ev.description}. End of an era.`,
+];
+
+const CLOSERS_MEDIUM = [
+  (ev, v) => `And so we arrive at ${ev.year}. ${ev.description}. The dust settles, the maps are redrawn, and ${v.land} will never look the same.`,
+  (ev, v) => `Our journey ends in ${ev.year}. ${ev.description}. What began with such promise now passes into legend — but the echoes will be heard for generations.`,
+  (ev, v) => `${ev.year}. ${ev.description}. And with that final act, this chapter of history draws to a close. The world that emerges is fundamentally different from the one that began this story.`,
+  (ev) => `We end where all great stories must — at the moment of reckoning. ${ev.year}: ${ev.description}. History moves on, but it never forgets.`,
+];
+
+const CLOSERS_LONG = [
+  (ev, v, parties) => `And now we reach the final stop. ${ev.year}. ${ev.description}. ${parties ? `For ${parties}, this marks the end of an extraordinary chapter.` : `For ${v.warriors} and those who followed them, this was the last act.`} Empires rise. Empires fall. But the human ambition that drove these events — that endures. The maps will be redrawn again. They always are.`,
+  (ev, v, parties) => `${ev.year}. ${ev.description}. ${parties ? `The story of ${parties} reaches its conclusion here` : `The final chapter is written here`} — not with a whisper, but with a moment that would resonate through the ages. Stand at this spot today, and you can almost hear the echoes. History is not just what happened. It is what we choose to remember.`,
+];
+
+// ── NEWS OPENINGS & CLOSINGS ─────────────────────────────────
+
+const NEWS_OPENERS = [
+  (desc, region) => `Breaking news from ${region}. ${desc}`,
+  (desc, region) => `Turning our attention to ${region}. ${desc}`,
+  (desc, region) => `Developing story out of ${region}: ${desc}`,
+];
+
+const NEWS_CLOSERS = [
+  (desc) => `${desc} We will continue monitoring the situation.`,
+  (desc) => `${desc} This remains a developing story.`,
+  (desc) => `The implications of this are still unfolding. ${desc}`,
+];
+
+function buildNewsNarrative(event, prevStop, index, totalStops) {
+  const region = event.region || 'the region';
+  // Attempt to strip obvious non-latin blocks (like full Arabic sentences) if they clutter the English TTS
+  let desc = (event.description || event.title || 'Events are unfolding.').replace(/[^\x00-\x7F]/g, '').trim().replace(/\s+/g, ' ');
+  if (!desc.endsWith('.')) desc += '.';
+
+  if (index === 0) return pick(NEWS_OPENERS)(desc, region).replace('..', '.');
+  if (index === totalStops - 1) return pick(NEWS_CLOSERS)(desc).replace('..', '.');
+  
+  // Middle stops
+  const transitions = [
+    `Meanwhile, in ${region}, `,
+    `Moving to ${region}, `,
+    `Elsewhere in ${region}, `,
+    `Also developing today: `,
+  ];
+  return `${pick(transitions)}${desc}`.replace('..', '.');
+}
+
+// ── EVENT-TYPE DRAMATIC BEATS ────────────────────────────────
+
+function eventBeat(ev, vocab, parties, narrationLength) {
+  const short = narrationLength === 'short';
+  const t = ev.type;
+
+  if (t === 'battle' || t === 'war') {
+    return short ? '' : pick([
+      parties ? ` ${parties} ${vocab.clash} in a test of will and ${vocab.weapon}.` : ` ${vocab.warriors} met their match that day.`,
+      parties ? ` The forces of ${parties} collided — and the cost was measured in blood.` : ` The clash of ${vocab.weapon} rang across ${ev.region || vocab.land}.`,
+      ` It was brutal, decisive, and it changed the calculus of power in ${ev.region || vocab.land}.`,
+    ]);
+  }
+  if (t === 'siege') {
+    return short ? '' : pick([
+      ` The walls held — until they didn't.`,
+      ` Day after day the defenders fought. But time favors the attacker.`,
+      parties ? ` ${parties} stared each other down across fortified walls. Only one would walk away.` : ` Behind those walls, an era was about to end.`,
+    ]);
+  }
+  if (t === 'conquest' || t === 'invasion') {
+    return short ? '' : pick([
+      ` New banners rose over ${ev.region || 'the conquered lands'}. The old order crumbled.`,
+      ` The conqueror's boot pressed down. A new chapter began — written by the victors.`,
+      parties ? ` ${parties} — and the world shifted on its axis.` : ` The map was redrawn overnight.`,
+    ]);
+  }
+  if (t === 'political' || t === 'treaty') {
+    return short ? '' : pick([
+      ` The pen proved mightier than the sword — at least for now.`,
+      ` A signature. A handshake. And the fate of nations was sealed.`,
+      ` This was not won on the battlefield — but its consequences were no less seismic.`,
+    ]);
+  }
+  if (t === 'death' || t === 'fall') {
+    return short ? '' : pick([
+      ` And just like that — it was over. An era extinguished.`,
+      ` The world mourned. Or celebrated. History rarely offers a clean verdict.`,
+      ` What fell that day was not merely a person, but an idea — an entire way of being.`,
+    ]);
+  }
+  if (t === 'achievement' || t === 'founding') {
+    return short ? '' : pick([
+      ` Something extraordinary was born that day — and it would outlast its creators.`,
+      ` In that moment of creation, the impossible became permanent.`,
+      ` The world got bigger. Horizons expanded. Nothing would ever be ordinary again.`,
+    ]);
+  }
+  // Default
+  return short ? '' : pick([
+    ` The significance of this moment would only become clear in the years that followed.`,
+    ` History rarely announces its pivots. This was one of them.`,
+    ` A quiet turning point — invisible to those living through it, unmistakable in hindsight.`,
+  ]);
+}
+
+// ── MAIN NARRATIVE BUILDER ───────────────────────────────────
+
+function buildNarrative(event, prevStop, index, totalStops, isClimax, narrationLength = 'medium') {
+  const isNews = String(event.year) === 'Modern' || String(event.year).startsWith('202') || event.news_tag;
+  if (isNews) {
+    return buildNewsNarrative(event, prevStop, index, totalStops);
+  }
+
+  const vocab = getVocab(event.era);
+  const parties = event.parties?.join(' and ') || '';
+  const region = event.region || vocab.land;
+  const transition = getTransition(prevStop, event, index, isClimax);
+
+  // ── OPENING (first stop) ──
   if (index === 0) {
-    return `Our journey begins in ${event.year}. ${event.description}.`;
+    const pool = narrationLength === 'short' ? OPENERS_SHORT
+      : narrationLength === 'long' ? OPENERS_LONG : OPENERS_MEDIUM;
+    return pick(pool)(event, vocab, region, parties);
   }
 
-  // Closing narration for the last stop
+  // ── CLOSING (last stop) ──
   if (index === totalStops - 1) {
-    return `${transition}${event.description}. And so, our journey comes to an end.`;
+    const pool = narrationLength === 'short' ? CLOSERS_SHORT
+      : narrationLength === 'long' ? CLOSERS_LONG : CLOSERS_MEDIUM;
+    return pick(pool)(event, vocab, parties);
   }
 
-  // Middle stops — weave the description naturally
-  return `${transition}${event.description}.`;
+  // ── SHORT: punchy one-liners ──
+  if (narrationLength === 'short') {
+    return `${transition}${event.description}.`;
+  }
+
+  // ── MEDIUM / LONG: transition + description + event beat ──
+  const beat = eventBeat(event, vocab, parties, narrationLength);
+  const base = `${transition}${event.description}.${beat}`;
+
+  // LONG gets extra atmospheric detail
+  if (narrationLength === 'long') {
+    const atmo = pick([
+      ` The landscape itself seemed to hold its breath.`,
+      ` Across ${region}, the reverberations were felt immediately.`,
+      ` Those who witnessed it would carry the memory to their graves.`,
+      ` The weight of this moment pressed down on everyone present.`,
+      ` Nothing in ${region} would ever look the same again.`,
+      '',  // sometimes just skip for variety
+      '',
+    ]);
+    return base + atmo;
+  }
+
+  return base;
 }
 
 function parseYearNum(y) {
@@ -171,29 +478,71 @@ function greatArcPoints(from, to, numPoints = 20) {
   return points;
 }
 
-/** Build a campaign from historical events */
-export function buildCampaign(events, eraTitle) {
+// ── Camera Emotion Presets ──
+// Each style defines: altitude multiplier, pitch, duration multiplier
+const CAMERA_STYLES = {
+  wide_establishing: { altMult: 1.6, pitch: 20, durMult: 1.3, label: 'Establishing' },
+  cinematic_pan:     { altMult: 1.2, pitch: 30, durMult: 1.1, label: 'Cinematic' },
+  rapid_zoom:        { altMult: 0.85, pitch: 40, durMult: 0.8, label: 'Rapid Zoom' },
+  terrain_tilt:      { altMult: 0.9, pitch: 50, durMult: 1.0, label: 'Terrain Tilt' },
+};
+
+/** Assign camera style based on event type and position */
+function assignCameraStyle(evType, index, total) {
+  if (index === 0) return 'wide_establishing';
+  if (index === total - 1) return 'cinematic_pan';
+  if (evType === 'battle' || evType === 'siege') return 'rapid_zoom';
+  if (evType === 'campaign' || evType === 'conquest') return 'terrain_tilt';
+  return 'cinematic_pan'; // political, death, founding, etc.
+}
+
+/** Compute heading in degrees based on march direction */
+function calcHeading(fromCoords, toCoords) {
+  if (!fromCoords) return 0; // Default north for first stop
+  const dLng = toCoords.lng - fromCoords.lng;
+  const dLat = toCoords.lat - fromCoords.lat;
+  // atan2 gives radians from north, clockwise
+  const heading = Math.atan2(dLng, dLat) * (180 / Math.PI);
+  // Normalize to 0-360
+  return ((heading % 360) + 360) % 360;
+}
+
+/** Generate a Wikipedia source URL from event title */
+function generateSourceUrl(title) {
+  const slug = title.replace(/['']/g, "'").replace(/ /g, '_');
+  return `https://en.wikipedia.org/wiki/${encodeURIComponent(slug)}`;
+}
+
+/** Build a campaign from historical events with camera emotion & narration depth */
+export function buildCampaign(events, eraTitle, tourLength = 'medium') {
   const sorted = [...events].sort((a, b) => parseYearNum(a.year) - parseYearNum(b.year));
+  const climaxIdx = findClimaxIndex(sorted);
 
   const path = [];
   for (let i = 0; i < sorted.length; i++) {
     const ev = sorted[i];
     const prevCoords = i > 0 ? { lat: sorted[i - 1].lat, lng: sorted[i - 1].lon } : null;
     const coords = { lat: ev.lat, lng: ev.lon };
-    const duration = calcFlightDuration(prevCoords, coords);
+    const baseDuration = calcFlightDuration(prevCoords, coords);
 
-    // Zoom levels — WIDE to see geographic context
-    let zoom = 7;  // Default: continent-scale (~2000km)
-    if (ev.type === 'battle' || ev.type === 'siege') zoom = 8;
-    if (ev.type === 'political' || ev.type === 'death') zoom = 8;
-    if (ev.type === 'campaign') zoom = 7;
-    if (ev.type === 'conquest') zoom = 8;
+    // Camera emotion
+    const cameraStyle = assignCameraStyle(ev.type, i, sorted.length);
+    const style = CAMERA_STYLES[cameraStyle];
+    const baseZoom = (ev.type === 'campaign') ? 7 : 8;
+    const altitude = zoomToAltitude(baseZoom) * style.altMult;
+    const duration = Math.max(2, baseDuration * style.durMult);
+
+    // Heading follows march direction
+    const heading = calcHeading(prevCoords, coords);
+
+    // Is this the climax?
+    const isClimax = i === climaxIdx;
 
     const prevStop = i > 0 ? path[i - 1] : null;
     const lecture = buildNarrative(
       { ...ev, coordinates: coords },
       prevStop ? { ...sorted[i - 1], coordinates: prevStop.coordinates } : null,
-      i, sorted.length
+      i, sorted.length, isClimax, tourLength
     );
 
     path.push({
@@ -206,11 +555,14 @@ export function buildCampaign(events, eraTitle) {
       type: ev.type,
       parties: ev.parties,
       lecture_segment: lecture,
+      source_url: generateSourceUrl(ev.title),
+      camera_style: cameraStyle,
       map_action: {
-        zoom,
-        pitch: 35,
+        altitude,
+        heading,
+        pitch: style.pitch,
         duration,
-        dwell: Math.max(2, lecture.length / 16),
+        dwell: Math.max(2.5, lecture.length / 14),
       },
     });
   }
@@ -219,6 +571,7 @@ export function buildCampaign(events, eraTitle) {
     metadata: {
       event_title: eraTitle || sorted[0]?.era || 'Historical Campaign',
       total_stops: path.length,
+      tour_length: tourLength,
       total_estimated_duration_seconds: path.reduce(
         (sum, s) => sum + s.map_action.duration + s.map_action.dwell, 0
       ),
@@ -236,14 +589,20 @@ let activePlayer = null;
 export class CampaignPlayer {
   constructor(campaign) {
     this.campaign = campaign;
+    this.state = 'idle';         // idle | flying | narrating | paused | complete
     this.currentStop = -1;
-    this.state = 'idle';
     this.muted = false;
     this.trailEntities = [];
     this.markerEntities = [];
-    this.utterance = null;
+    this.previewMarkers = [];
+    this.fogEntities = [];       // Fog of war overlay entities
     this._dwellTimer = null;
     this._listeners = {};
+
+    // Wire TTS word-level highlighting
+    ttsService.onWord((wordIdx, word) => {
+      this._emit('word-highlight', { wordIdx, word });
+    });
   }
 
   on(event, fn) { this._listeners[event] = fn; }
@@ -254,19 +613,23 @@ export class CampaignPlayer {
     if (activePlayer && activePlayer !== this) activePlayer.stop();
     activePlayer = this;
     if (this.state === 'paused') {
-      if (window.speechSynthesis?.paused) window.speechSynthesis.resume();
+      // Browser voice can resume; AI voice restarts on next advance
+      if (ttsService.getMode() === 'browser' && window.speechSynthesis?.paused) {
+        window.speechSynthesis.resume();
+      }
       this._setState('narrating');
       return;
     }
     this._setState('flying');
     this.currentStop = -1;
     this._placeAllPreviewMarkers();
+    this._addFogOfWar();   // Dark overlay on tour start
     await this._advance();
   }
 
   pause() {
     if (this.state === 'narrating' || this.state === 'flying') {
-      if (window.speechSynthesis?.speaking) window.speechSynthesis.pause();
+      ttsService.stop();
       clearTimeout(this._dwellTimer);
       this._setState('paused');
     }
@@ -276,22 +639,23 @@ export class CampaignPlayer {
     this._setState('idle');
     this.currentStop = -1;
     clearTimeout(this._dwellTimer);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    ttsService.stop();
     this._clearAll();
+    this._removeFogOfWar();
     if (activePlayer === this) activePlayer = null;
   }
 
   async next() {
     if (this.state === 'complete') return;
     clearTimeout(this._dwellTimer);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    ttsService.stop();
     await this._advance();
   }
 
   async prev() {
     if (this.currentStop <= 0) return;
     clearTimeout(this._dwellTimer);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    ttsService.stop();
     this.currentStop -= 2;
     const viewer = getViewer();
     if (viewer && this.trailEntities.length > 0) {
@@ -300,15 +664,19 @@ export class CampaignPlayer {
     await this._advance();
   }
 
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.muted && window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
-    return this.muted;
+  /** Cycle voice mode: ai → browser → muted → ai */
+  cycleVoiceMode() {
+    const modes = ['ai', 'browser', 'muted'];
+    const current = ttsService.getMode();
+    const next = modes[(modes.indexOf(current) + 1) % modes.length];
+    ttsService.setMode(next);
+    this.muted = (next === 'muted');
+    return next;
   }
 
   async jumpTo(index) {
     clearTimeout(this._dwellTimer);
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    ttsService.stop();
     this.currentStop = index - 1;
     await this._advance();
   }
@@ -328,10 +696,13 @@ export class CampaignPlayer {
     const stop = path[this.currentStop];
     this._emit('stop-change', { stop, index: this.currentStop, total: path.length });
 
-    // Trail from previous stop
+    // Reveal fog of war at this stop
+    this._revealFogAt(stop.coordinates);
+
+    // Animated trail from previous stop (starts growing during flight)
     if (this.currentStop > 0) {
       const prev = path[this.currentStop - 1];
-      this._drawTrail(prev.coordinates, stop.coordinates, this.currentStop);
+      this._animateTrail(prev.coordinates, stop.coordinates, this.currentStop, stop.map_action.duration);
       this._fadeOldTrails();
     }
 
@@ -342,9 +713,9 @@ export class CampaignPlayer {
     this._setState('flying');
     await this._flyTo(stop);
 
-    // Narrate
+    // Narrate (via TTS service: AI voice → browser fallback → silent)
     this._setState('narrating');
-    await this._narrate(stop.lecture_segment);
+    await ttsService.speak(stop.lecture_segment);
 
     // Dwell
     await this._dwell(stop.map_action.dwell * 1000);
@@ -360,8 +731,8 @@ export class CampaignPlayer {
       const viewer = getViewer();
       if (!viewer) { resolve(); return; }
 
-      const alt = zoomToAltitude(stop.map_action.zoom);
-      const pitchDeg = stop.map_action.pitch; // degrees below horizontal (e.g. 35)
+      const pitchDeg = stop.map_action.pitch;
+      const headingDeg = stop.map_action.heading || 0;
 
       // Use flyToBoundingSphere — Cesium positions the camera so the target
       // is at the visual center of the viewport regardless of pitch angle.
@@ -372,42 +743,15 @@ export class CampaignPlayer {
 
       viewer.camera.flyToBoundingSphere(bsphere, {
         offset: new Cesium.HeadingPitchRange(
-          Cesium.Math.toRadians(0),              // heading: north
-          Cesium.Math.toRadians(-pitchDeg),       // pitch below horizontal
-          alt                                      // range (distance from target)
+          Cesium.Math.toRadians(headingDeg),      // heading: follows march direction
+          Cesium.Math.toRadians(-pitchDeg),        // pitch below horizontal
+          stop.map_action.altitude                  // range from camera emotion
         ),
         duration: stop.map_action.duration,
         easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
         complete: () => resolve(),
         cancel: () => resolve(),
       });
-    });
-  }
-
-  _narrate(text) {
-    return new Promise(resolve => {
-      if (this.muted || !window.speechSynthesis) { resolve(); return; }
-      window.speechSynthesis.cancel();
-
-      const u = new SpeechSynthesisUtterance(text);
-      u.rate = 0.92;
-      u.pitch = 0.9;
-      u.volume = 0.85;
-
-      // Prefer a deep, authoritative voice
-      const voices = window.speechSynthesis.getVoices();
-      const pref = voices.find(v =>
-        v.name.includes('Google UK English Male') ||
-        v.name.includes('Daniel') ||
-        v.name.includes('Microsoft David') ||
-        v.name.includes('Google US English')
-      ) || voices.find(v => v.lang.startsWith('en'));
-      if (pref) u.voice = pref;
-
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
-      this.utterance = u;
-      window.speechSynthesis.speak(u);
     });
   }
 
@@ -418,27 +762,110 @@ export class CampaignPlayer {
     });
   }
 
-  // ── Trail & Markers ──
+  // ── Fog of War ──
 
-  _drawTrail(from, to, segIdx) {
+  /** Add a dark fog overlay covering the globe */
+  _addFogOfWar() {
     const viewer = getViewer();
     if (!viewer) return;
 
-    const arcPoints = greatArcPoints(from, to, 30);
+    // Semi-transparent dark rectangle covering the world
+    const fog = viewer.entities.add({
+      rectangle: {
+        coordinates: Cesium.Rectangle.fromDegrees(-180, -90, 180, 90),
+        material: Cesium.Color.BLACK.withAlpha(0.55),
+        height: 0,
+        classificationType: Cesium.ClassificationType.BOTH,
+      },
+    });
+    this.fogEntities.push(fog);
+  }
+
+  /** Reveal a circle at the given coordinates */
+  _revealFogAt(coords) {
+    const viewer = getViewer();
+    if (!viewer) return;
+
+    // Bright "revealed" ellipse that punches through the fog
+    const reveal = viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(coords.lng, coords.lat),
+      ellipse: {
+        semiMinorAxis: 120000,   // ~120km radius reveal
+        semiMajorAxis: 120000,
+        material: new Cesium.ColorMaterialProperty(
+          Cesium.Color.fromCssColorString('#0a1628').withAlpha(0.0)
+        ),
+        outline: true,
+        outlineColor: Cesium.Color.fromCssColorString('#f0b429').withAlpha(0.35),
+        outlineWidth: 2,
+        height: 0,
+        classificationType: Cesium.ClassificationType.BOTH,
+      },
+    });
+    this.fogEntities.push(reveal);
+  }
+
+  /** Clean up all fog entities */
+  _removeFogOfWar() {
+    const viewer = getViewer();
+    if (!viewer) return;
+    this.fogEntities.forEach(e => viewer.entities.remove(e));
+    this.fogEntities = [];
+  }
+
+  // ── Trail & Markers ──
+
+  /**
+   * Animated "marching line" — trail grows from origin to destination
+   * over the flight duration, synced with the camera movement.
+   */
+  _animateTrail(from, to, segIdx, flightDuration) {
+    const viewer = getViewer();
+    if (!viewer) return;
+
+    const allArcCoords = greatArcPoints(from, to, 40); // lon,lat pairs
+    const totalPairs = allArcCoords.length / 2;
+    const startTime = Date.now();
+    const durationMs = (flightDuration || 3) * 1000;
+    let currentCount = 1; // Start with 1 point visible
+
+    // CallbackProperty dynamically returns the subset of positions
+    const positionsCallback = new Cesium.CallbackProperty(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / durationMs);
+      // Ease-in-out to match camera easing
+      const eased = progress < 0.5
+        ? 2 * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+      const targetCount = Math.max(1, Math.floor(eased * totalPairs));
+      currentCount = Math.max(currentCount, targetCount); // Never shrink
+
+      const slice = allArcCoords.slice(0, currentCount * 2);
+      return Cesium.Cartesian3.fromDegreesArray(slice);
+    }, false);
+
     const entity = viewer.entities.add({
       id: `nav-trail-${segIdx}-${Date.now()}`,
       polyline: {
-        positions: Cesium.Cartesian3.fromDegreesArray(arcPoints),
-        width: 3,
+        positions: positionsCallback,
+        width: 3.5,
         material: new Cesium.PolylineGlowMaterialProperty({
-          glowPower: 0.3,
+          glowPower: 0.4,
           color: Cesium.Color.fromCssColorString('#ffd54f'),
         }),
         clampToGround: true,
       },
     });
     this.trailEntities.push(entity);
-    if (viewer.scene) viewer.scene.requestRender();
+
+    // After animation completes, convert to static positions for performance
+    setTimeout(() => {
+      if (entity.polyline) {
+        try {
+          entity.polyline.positions = Cesium.Cartesian3.fromDegreesArray(allArcCoords);
+        } catch(_) { /* entity may have been removed */ }
+      }
+    }, durationMs + 200);
   }
 
   _fadeOldTrails() {
@@ -463,14 +890,12 @@ export class CampaignPlayer {
       this._previewEntities[currentIndex] = null;
     }
 
-    // Re-style previous marker to "completed" (smaller gold dot)
+    // Re-style previous marker to "completed" (smaller gold billboard)
     if (currentIndex > 0 && this.markerEntities.length > 0) {
       const prev = this.markerEntities[this.markerEntities.length - 1];
-      if (prev.point) {
-        prev.point.pixelSize = 10;
-        prev.point.color = Cesium.Color.fromCssColorString('#ffd54f');
-        prev.point.outlineColor = Cesium.Color.fromCssColorString('#0a0e17');
-        prev.point.outlineWidth = 2;
+      if (prev.billboard) {
+        const prevIcon = EVENT_ICONS[prev._stopType] || EVENT_ICONS.default;
+        prev.billboard.image = createMarkerCanvas(prevIcon, '#ffd54f', 36);
       }
       if (prev.label) {
         prev.label.fillColor = Cesium.Color.fromCssColorString('#ffd54f').withAlpha(0.7);
@@ -478,28 +903,28 @@ export class CampaignPlayer {
       }
     }
 
-    // Place current marker — large cyan point with label
+    // Place current marker — large cyan billboard with label
     const icon = EVENT_ICONS[currentStop.type] || EVENT_ICONS.default;
+    const canvas = createMarkerCanvas(icon, '#00e5ff', 56);
+    
     const entity = viewer.entities.add({
       id: `nav-marker-${currentIndex}-${Date.now()}`,
       position: Cesium.Cartesian3.fromDegrees(
         currentStop.coordinates.lng, currentStop.coordinates.lat, 500
       ),
-      point: {
-        pixelSize: 22,
-        color: Cesium.Color.fromCssColorString('#00e5ff'),
-        outlineColor: Cesium.Color.fromCssColorString('#0a0e17'),
-        outlineWidth: 3,
+      billboard: {
+        image: canvas,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       label: {
-        text: `${icon}  ${currentStop.location_name}`,
-        font: 'bold 14px Inter, sans-serif',
+        text: currentStop.location_name,
+        font: 'bold 15px Inter, sans-serif',
         fillColor: Cesium.Color.WHITE,
         outlineColor: Cesium.Color.BLACK,
         outlineWidth: 3,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        pixelOffset: new Cesium.Cartesian2(0, -22),
+        pixelOffset: new Cesium.Cartesian2(0, -60),
         showBackground: true,
         backgroundColor: Cesium.Color.fromCssColorString('#0a0e17').withAlpha(0.9),
         backgroundPadding: new Cesium.Cartesian2(10, 5),
@@ -521,16 +946,17 @@ export class CampaignPlayer {
 
     this.campaign.campaign_path.forEach((stop, i) => {
       const icon = EVENT_ICONS[stop.type] || EVENT_ICONS.default;
+      const canvas = createMarkerCanvas(icon, '#607d8b', 28);
+      
       const entity = viewer.entities.add({
         id: `nav-preview-${i}-${Date.now()}`,
         position: Cesium.Cartesian3.fromDegrees(
           stop.coordinates.lng, stop.coordinates.lat, 500
         ),
-        point: {
-          pixelSize: 12,
-          color: Cesium.Color.fromCssColorString('#607d8b').withAlpha(0.8),
-          outlineColor: Cesium.Color.fromCssColorString('#0a0e17'),
-          outlineWidth: 1,
+        billboard: {
+          image: canvas,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          color: Cesium.Color.WHITE.withAlpha(0.6),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
         label: {
@@ -540,7 +966,7 @@ export class CampaignPlayer {
           outlineColor: Cesium.Color.BLACK,
           outlineWidth: 2,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          pixelOffset: new Cesium.Cartesian2(0, -16),
+          pixelOffset: new Cesium.Cartesian2(0, -32),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
           distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 3e6),
         },
@@ -587,6 +1013,7 @@ function ensureDOMElements() {
       <div class="nav-progress"><div class="nav-progress-fill"></div></div>
       <div class="nav-header">
         <span class="nav-title">Navigator</span>
+        <span class="nav-camera-style"></span>
         <span class="nav-state"></span>
       </div>
       <div class="nav-controls">
@@ -605,10 +1032,17 @@ function ensureDOMElements() {
       </div>
       <span class="nav-stop-info">1 / 1</span>
       <div class="nav-lecture"></div>
-      <span class="nav-duration"></span>
+      <div class="nav-bottom-row">
+        <a class="nav-source-link" href="#" target="_blank" rel="noopener" title="View source">
+          <span class="material-symbols-outlined">menu_book</span>
+          Source
+        </a>
+        <span class="nav-voice-badge">AI VOICE</span>
+        <span class="nav-duration"></span>
+      </div>
       <div class="nav-end-controls">
-        <button class="nav-btn nav-btn-mute" title="Toggle narration">
-          <span class="material-symbols-outlined">volume_up</span>
+        <button class="nav-btn nav-btn-voice" title="Cycle voice mode: AI → Browser → Muted">
+          <span class="material-symbols-outlined">graphic_eq</span>
         </button>
         <button class="nav-btn nav-btn-close" title="End tour">
           <span class="material-symbols-outlined">close</span>
@@ -620,9 +1054,51 @@ function ensureDOMElements() {
 }
 
 /** Start a guided tour */
-export function startNavigator(events, eraTitle) {
+export function startNavigator(events, eraTitle, tourLength = 'medium', llmCampaign = null) {
   ensureDOMElements();
-  const campaign = buildCampaign(events, eraTitle);
+
+  let campaign;
+  if (llmCampaign && llmCampaign.campaign_path && llmCampaign.campaign_path.length >= 2) {
+    // LLM-generated campaign — normalize the stop format
+    campaign = {
+      metadata: {
+        event_title: llmCampaign.metadata?.title || eraTitle || 'Campaign',
+        total_stops: llmCampaign.campaign_path.length,
+        tour_length: tourLength,
+        total_estimated_duration_seconds: llmCampaign.campaign_path.reduce(
+          (sum, s) => sum + (s.map_action?.duration || 5) + (s.map_action?.dwell || 5), 0
+        ),
+      },
+      campaign_path: llmCampaign.campaign_path.map((stop, i) => ({
+        stop_number: i + 1,
+        location_name: stop.title || stop.location_name || `Stop ${i + 1}`,
+        title: stop.title || stop.location_name || `Stop ${i + 1}`,
+        coordinates: {
+          lat: stop.coordinates?.lat || 0,
+          lng: stop.coordinates?.lng || stop.coordinates?.lon || 0,
+        },
+        year: stop.year || '',
+        era: stop.era || llmCampaign.metadata?.era || '',
+        region: stop.region || '',
+        type: stop.type || 'campaign',
+        parties: stop.parties || [],
+        lecture_segment: stop.lecture_segment || stop.description || '',
+        source_url: stop.source_url || '',
+        camera_style: stop.camera_style || stop.camera_emotion || assignCameraStyle(stop.type || 'campaign', i, llmCampaign.campaign_path.length),
+        map_action: {
+          altitude: stop.map_action?.altitude || 1200000,
+          heading: stop.map_action?.heading || 0,
+          pitch: stop.map_action?.pitch || 30,
+          duration: stop.map_action?.duration || 5,
+          dwell: stop.map_action?.dwell || Math.max(3, (stop.lecture_segment || '').length / 14),
+        },
+      })),
+    };
+  } else {
+    // Legacy: build campaign from local historical events
+    campaign = buildCampaign(events, eraTitle, tourLength);
+  }
+
   if (campaign.campaign_path.length < 2) return;
 
   currentPlayer = new CampaignPlayer(campaign);
@@ -711,11 +1187,34 @@ function showNavigatorUI(campaign, player) {
   hudEl.querySelector('.nav-btn-prev').onclick = () => player.prev();
   hudEl.querySelector('.nav-btn-next').onclick = () => player.next();
   hudEl.querySelector('.nav-btn-close').onclick = () => stopNavigator();
-  hudEl.querySelector('.nav-btn-mute').onclick = () => {
-    const m = player.toggleMute();
-    hudEl.querySelector('.nav-btn-mute .material-symbols-outlined').textContent =
-      m ? 'volume_off' : 'volume_up';
-  };
+
+  // Voice mode cycle: AI → Browser → Muted
+  const voiceBtn = hudEl.querySelector('.nav-btn-voice');
+  const voiceBadge = hudEl.querySelector('.nav-voice-badge');
+  const VOICE_ICONS = { ai: 'graphic_eq', browser: 'record_voice_over', muted: 'volume_off' };
+  const VOICE_LABELS = { ai: 'AI VOICE', browser: 'BROWSER', muted: 'MUTED' };
+
+  if (voiceBtn) {
+    voiceBtn.onclick = () => {
+      const newMode = player.cycleVoiceMode();
+      voiceBtn.querySelector('.material-symbols-outlined').textContent = VOICE_ICONS[newMode] || 'graphic_eq';
+      if (voiceBadge) {
+        voiceBadge.textContent = VOICE_LABELS[newMode] || '';
+        voiceBadge.className = `nav-voice-badge nav-voice-${newMode}`;
+      }
+    };
+  }
+
+  // Word highlighting callback
+  player.on('word-highlight', ({ wordIdx }) => {
+    const lectureEl = hudEl.querySelector('.nav-lecture');
+    if (!lectureEl || !lectureEl.children.length) return;
+    // Remove previous highlight
+    lectureEl.querySelectorAll('.nav-word-active').forEach(el => el.classList.remove('nav-word-active'));
+    // Highlight current word
+    const wordSpan = lectureEl.children[wordIdx];
+    if (wordSpan) wordSpan.classList.add('nav-word-active');
+  });
 
   hudEl.classList.add('visible');
   stopListEl.classList.add('visible');
@@ -729,7 +1228,48 @@ function hideNavigatorUI() {
 function updateHUDStop(stop, index, total) {
   if (!hudEl) return;
   hudEl.querySelector('.nav-stop-info').textContent = `${index + 1} / ${total}`;
-  hudEl.querySelector('.nav-lecture').textContent = stop.lecture_segment;
+  // Render lecture text with a cinematic typewriter effect timed to the flight duration
+  const lectureEl = hudEl.querySelector('.nav-lecture');
+  if (lectureEl) {
+    if (lectureEl._typeInterval) clearInterval(lectureEl._typeInterval);
+    
+    const text = stop.lecture_segment;
+    let charIdx = 0;
+    
+    // Calculate typing speed to finish just before the flight completes (or max 20ms per char)
+    const flightMs = (stop.map_action?.duration || 3) * 1000;
+    const typeSpeed = Math.min(25, Math.max(5, (flightMs - 500) / text.length));
+
+    lectureEl._typeInterval = setInterval(() => {
+      if (charIdx < text.length) {
+        lectureEl.innerHTML = text.substring(0, charIdx + 1) + '<span class="type-cursor">█</span>';
+        if (charIdx % 3 === 0) audio.playTypingBurst(); // Throttle audio slightly
+        charIdx++;
+      } else {
+        clearInterval(lectureEl._typeInterval);
+        // Swap to span-wrapped words for TTS highlighting once typing is complete
+        const words = text.split(/\s+/);
+        lectureEl.innerHTML = words.map(w => `<span class="nav-word">${w}</span>`).join(' ');
+      }
+    }, typeSpeed);
+  }
+
+  // Source link
+  const srcLink = hudEl.querySelector('.nav-source-link');
+  if (srcLink && stop.source_url) {
+    srcLink.href = stop.source_url;
+    srcLink.style.display = '';
+  } else if (srcLink) {
+    srcLink.style.display = 'none';
+  }
+
+  // Camera style badge
+  const styleBadge = hudEl.querySelector('.nav-camera-style');
+  if (styleBadge && stop.camera_style) {
+    const styleLabel = CAMERA_STYLES[stop.camera_style]?.label || '';
+    styleBadge.textContent = styleLabel;
+    styleBadge.className = `nav-camera-style nav-camera-${stop.camera_style}`;
+  }
 
   const pct = ((index + 1) / total) * 100;
   const bar = hudEl.querySelector('.nav-progress-fill');
@@ -775,8 +1315,18 @@ function updateStopList(activeIndex) {
   if (active) active.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// Pre-load voices
+// Pre-load browser voices (fallback)
 if (window.speechSynthesis) {
   window.speechSynthesis.getVoices();
   window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 }
+
+// Auto-detect AI voice availability
+ttsService.checkAvailability().then(available => {
+  if (!available) {
+    console.info('[VIGILENT] AI voice not available, using browser SpeechSynthesis.');
+    ttsService.setMode('browser');
+  } else {
+    console.info('[VIGILENT] AI voice available via ElevenLabs.');
+  }
+});

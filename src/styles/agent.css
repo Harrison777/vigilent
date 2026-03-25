@@ -117,6 +117,23 @@
   border-radius: 4px;
   padding: 2px 8px;
 }
+.agent-cache-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.agent-cache-hit {
+  color: #76ff03;
+  background: rgba(118, 255, 3, 0.1);
+  border: 1px solid rgba(118, 255, 3, 0.25);
+}
+.agent-cache-live {
+  color: #ff6d00;
+  background: rgba(255, 109, 0, 0.1);
+  border: 1px solid rgba(255, 109, 0, 0.25);
+}
 
 /* Summary section */
 .agent-summary {
@@ -309,4 +326,209 @@
   line-height: 1.4;
   margin-top: 3px;
   opacity: 0.8;
+}
+
+/* ════════════════════════════════════════
+   NEWS ANCHOR MODE STYLES
+   ════════════════════════════════════════ */
+
+/* News briefing accent — red */
+.agent-briefing-news .agent-summary {
+  border-left-color: #ff1744;
+  background: rgba(255, 23, 68, 0.04);
+}
+.agent-header-news {
+  color: #ff1744 !important;
+}
+.agent-header-news .agent-marker-badge {
+  color: #ff1744;
+  background: rgba(255, 23, 68, 0.1);
+  border-color: rgba(255, 23, 68, 0.25);
+}
+
+/* News section title */
+.agent-section-news {
+  color: #ff1744 !important;
+}
+.agent-section-news .material-symbols-outlined {
+  color: #ff1744 !important;
+}
+
+/* News event cards */
+.agent-news-card {
+  border-left: 2px solid rgba(255, 23, 68, 0.3);
+}
+.agent-news-card:hover {
+  border-left-color: rgba(255, 23, 68, 0.7);
+}
+
+/* News tag badges */
+.news-tag-badge {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.news-tag-breaking {
+  color: #ff1744;
+  background: rgba(255, 23, 68, 0.15);
+  border: 1px solid rgba(255, 23, 68, 0.3);
+  animation: newsPulse 2s ease-in-out infinite;
+}
+.news-tag-conflict-zone {
+  color: #ff6d00;
+  background: rgba(255, 109, 0, 0.15);
+  border: 1px solid rgba(255, 109, 0, 0.3);
+}
+.news-tag-market-alert {
+  color: #00e676;
+  background: rgba(0, 230, 118, 0.12);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+}
+.news-tag-diplomatic {
+  color: #448aff;
+  background: rgba(68, 138, 255, 0.12);
+  border: 1px solid rgba(68, 138, 255, 0.25);
+}
+.news-tag-humanitarian {
+  color: #ea80fc;
+  background: rgba(234, 128, 252, 0.12);
+  border: 1px solid rgba(234, 128, 252, 0.25);
+}
+.news-tag-defense,
+.news-tag-military_movement {
+  color: #b0bec5;
+  background: rgba(176, 190, 197, 0.1);
+  border: 1px solid rgba(176, 190, 197, 0.2);
+}
+.news-tag-sanctions {
+  color: #ffd600;
+  background: rgba(255, 214, 0, 0.1);
+  border: 1px solid rgba(255, 214, 0, 0.2);
+}
+
+@keyframes newsPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+/* Source link */
+.agent-source-link {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--accent-cyan);
+  text-decoration: none;
+  margin-top: 4px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.agent-source-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* ════════════════════════════════════════
+   LIVE TICKER BAR
+   ════════════════════════════════════════ */
+
+.live-ticker {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 36px;
+  background: linear-gradient(90deg, #1a0000 0%, #330011 30%, #1a0000 100%);
+  border-top: 1px solid rgba(255, 23, 68, 0.4);
+  display: flex;
+  align-items: center;
+  z-index: 9999;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  box-shadow: 0 -4px 20px rgba(255, 23, 68, 0.1);
+}
+
+.ticker-label {
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ff1744;
+  background: rgba(255, 23, 68, 0.1);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid rgba(255, 23, 68, 0.3);
+  animation: newsPulse 1.5s ease-in-out infinite;
+}
+
+.ticker-track {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.ticker-content {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.5px;
+  animation: tickerScroll 45s linear infinite;
+  padding-left: 100%;
+}
+
+.ticker-content strong {
+  color: #ffffff;
+}
+
+.ticker-tag {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.ticker-tag-breaking {
+  color: #ff1744;
+  background: rgba(255, 23, 68, 0.25);
+}
+.ticker-tag-conflict-zone {
+  color: #ff6d00;
+  background: rgba(255, 109, 0, 0.25);
+}
+.ticker-tag-market-alert {
+  color: #00e676;
+  background: rgba(0, 230, 118, 0.2);
+}
+.ticker-tag-diplomatic {
+  color: #448aff;
+  background: rgba(68, 138, 255, 0.2);
+}
+.ticker-tag-humanitarian {
+  color: #ea80fc;
+  background: rgba(234, 128, 252, 0.2);
+}
+.ticker-tag-defense,
+.ticker-tag-military_movement {
+  color: #b0bec5;
+  background: rgba(176, 190, 197, 0.15);
+}
+.ticker-tag-sanctions {
+  color: #ffd600;
+  background: rgba(255, 214, 0, 0.15);
+}
+
+@keyframes tickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }

@@ -308,6 +308,41 @@
 
 /* ── TOUR BUTTON (in agent panel) ── */
 
+.agent-tour-controls {
+  margin: 8px 0;
+}
+
+.agent-tour-length {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 3px;
+}
+.tour-len-btn {
+  flex: 1;
+  padding: 6px 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.tour-len-btn:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.05);
+}
+.tour-len-btn.active {
+  color: #ffd54f;
+  background: rgba(255, 213, 79, 0.12);
+  border-color: rgba(255, 213, 79, 0.3);
+}
+
 .agent-tour-btn {
   display: flex;
   align-items: center;
@@ -315,7 +350,6 @@
   gap: 8px;
   width: 100%;
   padding: 12px;
-  margin: 8px 0;
   border: 1px solid rgba(255, 213, 79, 0.3);
   border-radius: 8px;
   background: rgba(255, 213, 79, 0.08);
@@ -333,4 +367,110 @@
 }
 .agent-tour-btn .material-symbols-outlined {
   font-size: 18px;
+}
+
+/* ── HUD BOTTOM ROW (source + duration) ── */
+
+.nav-bottom-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.nav-source-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 213, 79, 0.5);
+  text-decoration: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 213, 79, 0.12);
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+.nav-source-link:hover {
+  color: #ffd54f;
+  border-color: rgba(255, 213, 79, 0.4);
+  background: rgba(255, 213, 79, 0.08);
+}
+.nav-source-link .material-symbols-outlined {
+  font-size: 14px;
+}
+
+/* ── CAMERA STYLE BADGE ── */
+
+.nav-camera-style {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 1px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  white-space: nowrap;
+  text-transform: uppercase;
+}
+.nav-camera-wide_establishing { color: #b388ff; background: rgba(179, 136, 255, 0.12); }
+.nav-camera-cinematic_pan { color: #80cbc4; background: rgba(128, 203, 196, 0.12); }
+.nav-camera-rapid_zoom { color: #ff6e40; background: rgba(255, 110, 64, 0.12); }
+.nav-camera-terrain_tilt { color: #69f0ae; background: rgba(105, 240, 174, 0.12); }
+
+/* ── VOICE BADGE ── */
+
+.nav-voice-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  color: #69f0ae;
+  background: rgba(105, 240, 174, 0.1);
+  border: 1px solid rgba(105, 240, 174, 0.2);
+  transition: all 0.3s ease;
+}
+.nav-voice-ai {
+  color: #69f0ae;
+  background: rgba(105, 240, 174, 0.1);
+  border-color: rgba(105, 240, 174, 0.2);
+}
+.nav-voice-browser {
+  color: #80cbc4;
+  background: rgba(128, 203, 196, 0.1);
+  border-color: rgba(128, 203, 196, 0.2);
+}
+.nav-voice-muted {
+  color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ── WORD HIGHLIGHTING ── */
+
+.nav-word {
+  transition: color 0.15s ease, text-shadow 0.15s ease;
+}
+.nav-word-active {
+  color: #ffd54f !important;
+  text-shadow: 0 0 8px rgba(255, 213, 79, 0.5);
+}
+
+/* ── TYPEWRITER CURSOR ── */
+.type-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 12px;
+  background-color: #00e5ff;
+  margin-left: 2px;
+  vertical-align: middle;
+  animation: blinkCursor 0.6s infinite step-end;
+}
+
+@keyframes blinkCursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
 }

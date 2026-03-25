@@ -5,14 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server.js",
+    "start": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "cesium": "^1.125.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
     "satellite.js": "^5.0.0"
   },
   "devDependencies": {
+    "concurrently": "^9.1.2",
     "vite": "^6.0.0",
     "vite-plugin-cesium": "^1.2.23"
   }

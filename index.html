@@ -9,8 +9,168 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
+  <style>
+    /* Inline Critical CSS for Spy Radar Loader */
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-tertiary: #1a2332;
+      --accent-cyan: #4A90D9;
+      --accent-cyan-dim: rgba(74, 144, 217, 0.3);
+      --accent-red: #ff1744;
+      --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+    }
+
+    #loadingOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #loadingOverlay.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .radar-container {
+      width: 140px;
+      height: 140px;
+      position: relative;
+      border-radius: 50%;
+      border: 1px solid var(--accent-cyan);
+      box-shadow: 0 0 20px rgba(74, 144, 217, 0.4), inset 0 0 30px rgba(74, 144, 217, 0.2);
+      background: rgba(10, 14, 23, 0.85);
+      overflow: hidden;
+    }
+
+    .radar-grid {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background-image: 
+        linear-gradient(rgba(74, 144, 217, 0.2) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(74, 144, 217, 0.2) 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-position: center center;
+    }
+    .radar-grid::before {
+      content: '';
+      position: absolute;
+      inset: 50%;
+      width: 100%;
+      height: 1px;
+      background: rgba(74, 144, 217, 0.6);
+      transform: translate(-50%, -50%);
+    }
+    .radar-grid::after {
+      content: '';
+      position: absolute;
+      inset: 50%;
+      width: 1px;
+      height: 100%;
+      background: rgba(74, 144, 217, 0.6);
+      transform: translate(-50%, -50%);
+    }
+
+    .radar-scan {
+      position: absolute;
+      width: 50%;
+      height: 50%;
+      bottom: 50%;
+      right: 50%;
+      background: conic-gradient(from 0deg, rgba(74,144,217,0) 0%, rgba(74,144,217,0.7) 100%);
+      transform-origin: 100% 100%;
+      animation: radarSweep 2s linear infinite;
+      border-right: 2px solid var(--accent-cyan);
+    }
+
+    @keyframes radarSweep {
+      to { transform: rotate(360deg); }
+    }
+
+    .radar-target {
+      position: absolute;
+      box-sizing: border-box;
+      width: 6px;
+      height: 6px;
+      background: var(--accent-red);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--accent-red);
+      top: 35%;
+      left: 65%;
+      animation: targetBlink 1.5s infinite step-end;
+    }
+
+    @keyframes targetBlink {
+      50% { opacity: 0; }
+    }
+
+    .loading-decoder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .decoder-text {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: var(--accent-cyan);
+      text-shadow: 0 0 10px var(--accent-cyan-dim);
+      animation: pulse-glow-decoder 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow-decoder {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; text-shadow: 0 0 20px var(--accent-cyan); }
+    }
+
+    .decoder-bar {
+      width: 200px;
+      height: 2px;
+      background: var(--bg-tertiary);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 8px rgba(0,0,0,0.5);
+    }
+    .decoder-bar::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; bottom: 0;
+      width: 40px;
+      background: var(--accent-cyan);
+      box-shadow: 0 0 12px var(--accent-cyan);
+      animation: slideBar 1.2s infinite ease-in-out;
+    }
+
+    @keyframes slideBar {
+      0% { left: -40px; width: 30%; }
+      50% { width: 60%; }
+      100% { left: 100%; width: 30%; }
+    }
+  </style>
 </head>
 <body>
+  <!-- Spy-Themed Loading Overlay -->
+  <div id="loadingOverlay">
+    <div class="radar-container">
+      <div class="radar-scan"></div>
+      <div class="radar-grid"></div>
+      <div class="radar-target"></div>
+    </div>
+    <div class="loading-decoder">
+      <span class="decoder-text">DECRYPTING SECURE SATELLITE FEED...</span>
+      <div class="decoder-bar"></div>
+    </div>
+  </div>
+
   <!-- Cesium 3D Globe Container -->
   <div id="cesiumContainer"></div>
 
@@ -37,6 +197,9 @@
       </div>
     </div>
     <div class="top-bar-right">
+      <button id="sfxToggleBtn" class="icon-btn" title="Enable UI Sound Effects" style="margin-right: 12px; border-color: rgba(255, 23, 68, 0.4); color: var(--accent-red);">
+        <span class="material-symbols-outlined">volume_off</span>
+      </button>
       <div class="hud-readout hud-coord">
         <span class="readout-label">ALT</span>
         <span id="hudAlt" class="readout-value">--</span>

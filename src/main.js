@@ -7,6 +7,7 @@ import './styles/panels.css';
 import './styles/timeline.css';
 import './styles/agent.css';
 import './styles/navigator.css';
+import './styles/auth.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import * as Cesium from 'cesium';
 
@@ -18,6 +19,7 @@ import { initSearch } from './ui/search.js';
 import { initInfoPanel } from './ui/info-panel.js';
 import { initControls } from './ui/controls.js';
 import { initAgent } from './ui/agent.js';
+import { initAuth } from './ui/auth.js';
 import { registerSatelliteLayers } from './data/satellites.js';
 import { registerAviationLayers } from './data/aviation.js';
 import { registerSeismicLayer } from './data/seismic.js';
@@ -44,11 +46,13 @@ async function boot() {
     const globeTime = Math.round(performance.now() - t0);
     console.log(`[BOOT] Globe ready in ${globeTime}ms`);
 
-    // 2. IMMEDIATELY dismiss loading overlay — user sees the globe!
+    // 2. Delay dismissal of loading overlay to mask tile loading and reveal spy tech
     const overlay = document.getElementById('loadingOverlay');
     if (overlay) {
-      overlay.classList.add('fade-out');
-      setTimeout(() => overlay.remove(), 600);
+      setTimeout(() => {
+        overlay.classList.add('fade-out');
+        setTimeout(() => overlay.remove(), 1000); // Wait for the 1s CSS fade
+      }, 3500); // 3.5s artificial delay for ultimate spy immersion and tile buffering
     }
 
     // 3. Register all data layers (instant — just adds to registry, no I/O)
@@ -72,6 +76,7 @@ async function boot() {
     initControls();
     initNewsFeed();
     initAgent();
+    initAuth();
 
     // 5. Start HUD immediately
     startHUDUpdates();
@@ -162,29 +167,26 @@ function startHUDUpdates() {
   // The registry-based counter in layers.js is authoritative
 
   // Coordinate HUD — track mouse position on globe + camera altitude
+  // Coordinate HUD — track camera position in real-time
   if (viewer && hudLat && hudLon && hudAlt) {
-    const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-    handler.setInputAction((movement) => {
-      const cartesian = viewer.camera.pickEllipsoid(movement.endPosition, viewer.scene.globe.ellipsoid);
-      if (cartesian) {
-        const carto = Cesium.Cartographic.fromCartesian(cartesian);
-        hudLat.textContent = Cesium.Math.toDegrees(carto.latitude).toFixed(3) + '°';
-        hudLon.textContent = Cesium.Math.toDegrees(carto.longitude).toFixed(3) + '°';
-      }
-    }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
-
-    // Camera altitude — update when camera moves
-    const updateAlt = () => {
+    const updateHUD = () => {
       const camCarto = viewer.camera.positionCartographic;
+      
+      // Update Altitude
       const altKm = camCarto.height / 1000;
       if (altKm > 1000) {
         hudAlt.textContent = (altKm / 1000).toFixed(1) + ' Mm';
       } else {
         hudAlt.textContent = altKm.toFixed(0) + ' km';
       }
+
+      // Update LAT / LON
+      hudLat.textContent = Cesium.Math.toDegrees(camCarto.latitude).toFixed(3) + '°';
+      hudLon.textContent = Cesium.Math.toDegrees(camCarto.longitude).toFixed(3) + '°';
     };
-    viewer.scene.postRender.addEventListener(updateAlt);
-    updateAlt();
+
+    viewer.scene.postRender.addEventListener(updateHUD);
+    updateHUD();
   }
 
   // Live stats bar — count entities by type every 3 seconds
@@ -223,6 +225,20 @@ function startHUDUpdates() {
 }
 
 // ============================================================
-// LAUNCH
+// AUDIO BINDINGS & LAUNCH
 // ============================================================
+import { audio } from './services/audio.js';
+
+document.addEventListener('mouseover', (e) => {
+  if (e.target.closest('button, .layer-toggle, input, .nav-stop-item, .search-result-item')) {
+    audio.playTick(1500);
+  }
+});
+
+document.addEventListener('mousedown', (e) => {
+  if (e.target.closest('button, .layer-toggle, input, .nav-stop-item, .search-result-item')) {
+    audio.playClick();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', boot);

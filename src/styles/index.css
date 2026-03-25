@@ -372,40 +372,7 @@ html, body {
   font-size: 16px;
 }
 
-/* ========== LOADING OVERLAY ========== */
-#loadingOverlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  background: var(--bg-primary);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  transition: opacity 0.6s ease;
-}
-#loadingOverlay.fade-out {
-  opacity: 0;
-  pointer-events: none;
-}
-.loading-spinner {
-  width: 48px;
-  height: 48px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--accent-cyan);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-.loading-text {
-  font-family: var(--font-mono);
-  font-size: 13px;
-  letter-spacing: 3px;
-  color: var(--text-secondary);
-}
+/* Removed Spy Radar overlay CSS here as it is now inlined in index.html to guarantee 0-frame rendering */
 
 /* ==============================
    FINANCIAL TICKER

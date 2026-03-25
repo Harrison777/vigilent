@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIGILENT · Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Symbols+Outlined" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ── Login Screen ─────────────────────────── -->
+  <div id="loginScreen" class="screen active">
+    <div class="login-container">
+      <div class="login-logo">
+        <span class="logo-icon material-symbols-outlined">public</span>
+        <h1>VIGILENT</h1>
+        <p class="login-subtitle">ADMIN CONTROL PANEL</p>
+      </div>
+      <form id="loginForm" class="login-form">
+        <div class="input-group">
+          <span class="material-symbols-outlined input-icon">person</span>
+          <input type="text" id="loginUser" placeholder="Username" autocomplete="username" required>
+        </div>
+        <div class="input-group">
+          <span class="material-symbols-outlined input-icon">lock</span>
+          <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn-primary" id="loginBtn">
+          <span class="material-symbols-outlined">login</span>
+          AUTHENTICATE
+        </button>
+        <div id="loginError" class="error-msg"></div>
+      </form>
+      <p class="login-hint">Default: admin / admin</p>
+    </div>
+  </div>
+
+  <!-- ── Dashboard Screen ─────────────────────── -->
+  <div id="dashScreen" class="screen">
+    <header class="dash-header">
+      <div class="dash-brand">
+        <span class="material-symbols-outlined">public</span>
+        <span>VIGILENT</span>
+        <span class="header-tag">ADMIN</span>
+      </div>
+      <div class="dash-actions">
+        <span class="user-label" id="userLabel">admin</span>
+        <button class="btn-icon" id="logoutBtn" title="Logout">
+          <span class="material-symbols-outlined">logout</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="dash-main">
+      <!-- ── LLM Config ────────────────────────── -->
+      <section class="config-card" id="llmCard">
+        <div class="card-header">
+          <span class="material-symbols-outlined card-icon">smart_toy</span>
+          <h2>LLM Configuration</h2>
+          <button class="btn-test" id="testLlmBtn">
+            <span class="material-symbols-outlined">science</span>
+            Test
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <label>Provider</label>
+            <select id="llmProvider">
+              <option value="openrouter">OpenRouter</option>
+              <option value="gemini">Google Gemini</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label>Model</label>
+            <input type="text" id="llmModel" placeholder="minimax/minimax-m2.5">
+          </div>
+          <div class="field-row">
+            <label>API Key</label>
+            <div class="key-input">
+              <input type="password" id="llmApiKey" placeholder="sk-or-...">
+              <button class="btn-icon toggle-vis" data-target="llmApiKey">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+            </div>
+          </div>
+          <div class="field-row">
+            <label>Temperature <span class="field-value" id="tempValue">0.7</span></label>
+            <input type="range" id="llmTemp" min="0" max="1" step="0.1" value="0.7">
+          </div>
+          <div class="field-row">
+            <label>Max Tokens</label>
+            <input type="number" id="llmMaxTokens" value="8192" min="1024" max="32768">
+          </div>
+        </div>
+        <div class="card-status" id="llmStatus"></div>
+      </section>
+
+      <!-- ── Search Config ─────────────────────── -->
+      <section class="config-card" id="searchCard">
+        <div class="card-header">
+          <span class="material-symbols-outlined card-icon">search</span>
+          <h2>Search API</h2>
+          <button class="btn-test" id="testSearchBtn">
+            <span class="material-symbols-outlined">science</span>
+            Test
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <label>Provider</label>
+            <select id="searchProvider" disabled>
+              <option value="serper">Serper (Google Search)</option>
+            </select>
+          </div>
+          <div class="field-row">
+            <label>API Key</label>
+            <div class="key-input">
+              <input type="password" id="searchApiKey" placeholder="Serper API key">
+              <button class="btn-icon toggle-vis" data-target="searchApiKey">
+                <span class="material-symbols-outlined">visibility</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-status" id="searchStatus"></div>
+      </section>
+
+      <!-- ── TTS Config ────────────────────────── -->
+      <section class="config-card" id="ttsCard">
+        <div class="card-header">
+          <span class="material-symbols-outlined card-icon">record_voice_over</span>
+          <h2>Text-to-Speech</h2>
+          <button class="btn-test" id="testTtsBtn">
+            <span class="material-symbols-outlined">science</span>
+            Test
+          </button>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <label>Provider</label>
+            <select id="ttsProvider">
+              <option value="voicebox">VoiceBox (Local)</option>
+              <option value="elevenlabs">ElevenLabs (Cloud)</option>
+            </select>
+          </div>
+
+          <!-- VoiceBox fields -->
+          <div id="voiceboxFields">
+            <div class="field-row">
+              <label>VoiceBox Host</label>
+              <input type="text" id="voiceboxHost" placeholder="http://localhost:17493">
+            </div>
+            <div class="field-row">
+              <label>Voice Profile ID</label>
+              <input type="text" id="voiceboxProfileId" placeholder="Profile ID from VoiceBox app">
+            </div>
+            <div class="field-row">
+              <label>Engine</label>
+              <select id="voiceboxEngine">
+                <option value="qwen">Qwen3-TTS (23 languages, default)</option>
+                <option value="chatterbox_turbo">Chatterbox Turbo (fast, English)</option>
+                <option value="chatterbox">Chatterbox Multilingual</option>
+                <option value="luxtts">LuxTTS (CPU-friendly)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- ElevenLabs fields -->
+          <div id="elevenlabsFields" style="display:none">
+            <div class="field-row">
+              <label>API Key</label>
+              <div class="key-input">
+                <input type="password" id="ttsApiKey" placeholder="ElevenLabs API key">
+                <button class="btn-icon toggle-vis" data-target="ttsApiKey">
+                  <span class="material-symbols-outlined">visibility</span>
+                </button>
+              </div>
+            </div>
+            <div class="field-row">
+              <label>Voice ID</label>
+              <input type="text" id="ttsVoiceId" placeholder="EXAVITQu4vr4xnSDxMaL">
+            </div>
+          </div>
+        </div>
+        <div class="card-status" id="ttsStatus"></div>
+      </section>
+
+      <!-- ── Admin / Password ──────────────────── -->
+      <section class="config-card" id="adminCard">
+        <div class="card-header">
+          <span class="material-symbols-outlined card-icon">admin_panel_settings</span>
+          <h2>Admin Account</h2>
+        </div>
+        <div class="card-body">
+          <div class="field-row">
+            <label>Current Password</label>
+            <input type="password" id="currentPass" placeholder="••••••••">
+          </div>
+          <div class="field-row">
+            <label>New Password</label>
+            <input type="password" id="newPass" placeholder="Enter new password">
+          </div>
+          <button class="btn-secondary" id="changePassBtn">
+            <span class="material-symbols-outlined">key</span>
+            Change Password
+          </button>
+        </div>
+        <div class="card-status" id="passStatus"></div>
+      </section>
+
+      <!-- ── User Management ──────────────────── -->
+      <section class="config-card" id="usersCard">
+        <div class="card-header">
+          <span class="material-symbols-outlined card-icon">group</span>
+          <h2>Registered Users</h2>
+          <button class="btn-test" id="refreshUsersBtn">
+            <span class="material-symbols-outlined">refresh</span>
+            Refresh
+          </button>
+        </div>
+        <div class="card-body">
+          <div id="usersTableWrap">
+            <table class="users-table" id="usersTable">
+              <thead>
+                <tr>
+                  <th>USERNAME</th>
+                  <th>EMAIL</th>
+                  <th>ROLE</th>
+                  <th>JOINED</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody">
+                <tr><td colspan="5" class="users-empty">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="users-count" id="usersCount"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="dash-footer">
+      <button class="btn-primary btn-save" id="saveBtn">
+        <span class="material-symbols-outlined">save</span>
+        SAVE ALL SETTINGS
+      </button>
+      <div id="saveStatus" class="save-status"></div>
+    </footer>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

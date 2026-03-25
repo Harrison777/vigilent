@@ -80,7 +80,7 @@ export function initPostProcessing() {
   sharpenStage = new Cesium.PostProcessStage({
     fragmentShader: SHARPEN_FRAG,
     uniforms: {
-      sharpenAmount: 0.0
+      sharpenAmount: 1.0
     }
   });
   viewer.scene.postProcessStages.add(sharpenStage);

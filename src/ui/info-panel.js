@@ -140,6 +140,8 @@ const TYPE_FORMATTERS = {
   `,
 };
 
+let clickHandler = null;
+
 export function initInfoPanel() {
   const viewer = getViewer();
   if (!viewer) return;
@@ -155,9 +157,9 @@ export function initInfoPanel() {
     });
   }
 
-  // Handle entity clicks
-  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-  handler.setInputAction((click) => {
+  // Handle entity clicks — store handler for cleanup
+  clickHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  clickHandler.setInputAction((click) => {
     const picked = viewer.scene.pick(click.position);
     if (!picked || !picked.id) {
       panel.classList.add('hidden');
@@ -209,4 +211,14 @@ export function initInfoPanel() {
       panel.classList.add('hidden');
     }
   });
+}
+
+/**
+ * Destroy the info panel click handler — frees the ScreenSpaceEventHandler
+ */
+export function destroyInfoPanel() {
+  if (clickHandler) {
+    clickHandler.destroy();
+    clickHandler = null;
+  }
 }

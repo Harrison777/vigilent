@@ -44,10 +44,14 @@ export function initSearch() {
     if (e.key === 'Enter') {
       const query = input.value.trim();
       if (!query) return;
-      const results = await searchLocations(query);
-      if (results.length > 0) {
-        flyToLocation(results[0]);
-        dropdown.classList.remove('visible');
+      try {
+        const results = await searchLocations(query);
+        if (results.length > 0) {
+          flyToLocation(results[0]);
+          dropdown.classList.remove('visible');
+        }
+      } catch (err) {
+        console.warn('[SEARCH] Geocode failed:', err.message);
       }
     }
   });

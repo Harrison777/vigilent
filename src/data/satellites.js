@@ -20,7 +20,7 @@ let initialized = false;
  * Try to fetch TLE data (background, non-blocking)
  */
 async function fetchTLEsBackground() {
-  const groups = ['stations', 'active'];
+  const groups = ['stations', 'active', 'gnss', 'weather', 'geo', 'resource'];
 
   for (const group of groups) {
     try {
@@ -55,7 +55,11 @@ async function fetchTLEsBackground() {
 const ORBIT_PARAMS = {
   LEO:        { alt: 400000, period: 92, inclination: 51.6 },
   SSO:        { alt: 700000, period: 99, inclination: 97.8 },
+  MEO:        { alt: 20200000, period: 717, inclination: 55.0 },
   GEO:        { alt: 35786000, period: 1436, inclination: 0.05 },
+  HEO:        { alt: 35786000, period: 1436, inclination: 63.4 },
+  L1:         { alt: 1500000000, period: 525960, inclination: 0.0 },
+  L2:         { alt: 1500000000, period: 525960, inclination: 0.0 },
   'Retro-SSO':{ alt: 600000, period: 96, inclination: 142 },
 };
 
@@ -146,11 +150,16 @@ function updateSatellites() {
   }
 
   const now = new Date();
-  const showCommercial = document.querySelector('[data-layer="satellites-commercial"]')?.checked ?? true;
-  const showMilitary = document.querySelector('[data-layer="satellites-military"]')?.checked ?? true;
+
+  // Build visibility map from sidebar checkboxes for all categories
+  const categoryVisibility = {};
+  Object.keys(SATELLITE_CATEGORIES).forEach(catKey => {
+    const checkbox = document.querySelector(`[data-layer="satellites-${catKey}"]`);
+    categoryVisibility[catKey] = checkbox?.checked ?? false;
+  });
 
   Object.entries(SATELLITE_CATEGORIES).forEach(([catKey, cat]) => {
-    const isVisible = (catKey === 'commercial' && showCommercial) || (catKey === 'military' && showMilitary);
+    const isVisible = categoryVisibility[catKey] ?? false;
 
     cat.satellites.forEach(satInfo => {
       let pos;
@@ -253,9 +262,20 @@ async function initSatellites() {
   fetchTLEsBackground().catch(() => {});
 }
 
-function showSatellites() { updateSatellites(); }
+function showSatellites() {
+  updateSatellites();
+  // Restart position updates when layer is visible again
+  if (!updateInterval) {
+    updateInterval = setInterval(updateSatellites, 10000);
+  }
+}
 
 function hideSatellites() {
+  // Stop the update timer — no point recalculating orbits for hidden entities
+  if (updateInterval) {
+    clearInterval(updateInterval);
+    updateInterval = null;
+  }
   const viewer = getViewer();
   if (!viewer) return;
   satEntities.forEach(id => {
@@ -277,6 +297,38 @@ export function registerSatelliteLayers() {
 
   registerLayer('satellites-military', {
     name: 'Military / ISR Satellites',
+    init: async () => { if (!initialized) await initSatellites(); },
+    show: showSatellites,
+    hide: hideSatellites,
+    update: () => {}
+  });
+
+  registerLayer('satellites-navigation', {
+    name: 'Navigation / GNSS',
+    init: async () => { if (!initialized) await initSatellites(); },
+    show: showSatellites,
+    hide: hideSatellites,
+    update: () => {}
+  });
+
+  registerLayer('satellites-weather', {
+    name: 'Weather / Climate',
+    init: async () => { if (!initialized) await initSatellites(); },
+    show: showSatellites,
+    hide: hideSatellites,
+    update: () => {}
+  });
+
+  registerLayer('satellites-comms', {
+    name: 'Communications',
+    init: async () => { if (!initialized) await initSatellites(); },
+    show: showSatellites,
+    hide: hideSatellites,
+    update: () => {}
+  });
+
+  registerLayer('satellites-science', {
+    name: 'Science / Research',
     init: async () => { if (!initialized) await initSatellites(); },
     show: showSatellites,
     hide: hideSatellites,

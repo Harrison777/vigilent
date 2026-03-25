@@ -159,7 +159,7 @@ app.post('/admin/api/login', (req, res) => {
 
 // ── Admin Settings Routes ─────────────────────────────────────
 
-app.get('/admin/api/settings', authRequired, (req, res) => {
+app.get('/admin/api/settings', authRequired, roleRequired('admin'), (req, res) => {
   const config = loadConfig();
   // Return config but mask sensitive keys for display
   const safe = {
@@ -783,15 +783,15 @@ app.post('/api/tts', async (req, res) => {
         return res.status(503).json({ error: 'ElevenLabs API key not configured' });
       }
 
-      const vid = req.body.voice_id || config.tts.voiceId || 'EXAVITQu4vr4xnSDxMaL';
+      const vid = config.tts.voiceId || 'EXAVITQu4vr4xnSDxMaL';
 
       const apiRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}/with-timestamps`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'xi-api-key': config.tts.apiKey },
         body: JSON.stringify({
           text: req.body.text,
-          model_id: req.body.model_id || 'eleven_multilingual_v2',
-          output_format: req.body.output_format || 'mp3_44100_128',
+          model_id: 'eleven_multilingual_v2',
+          output_format: 'mp3_44100_128',
         }),
       });
 

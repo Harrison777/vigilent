@@ -251,6 +251,30 @@
             <span class="material-symbols-outlined layer-icon">shield</span>
             <span>Military / ISR Satellites</span>
           </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-navigation">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">explore</span>
+            <span>Navigation / GNSS</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-weather">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">cloud</span>
+            <span>Weather / Climate</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-comms">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">cell_tower</span>
+            <span>Communications</span>
+          </label>
+          <label class="layer-toggle">
+            <input type="checkbox" data-layer="satellites-science">
+            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            <span class="material-symbols-outlined layer-icon">rocket_launch</span>
+            <span>Science / Research</span>
+          </label>
         </div>
         <div class="layer-group">
           <h3 class="group-title">AIR</h3>
@@ -382,8 +406,8 @@
           </div>
           <div class="slider-row">
             <label>SHARPEN</label>
-            <input type="range" id="sharpenIntensity" min="0" max="100" value="0">
-            <span class="slider-val" id="sharpenVal">0</span>
+            <input type="range" id="sharpenIntensity" min="0" max="100" value="100">
+            <span class="slider-val" id="sharpenVal">100</span>
           </div>
           <div class="slider-row hidden" id="sensitivityRow">
             <label>SENSITIVITY</label>

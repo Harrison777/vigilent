@@ -3,21 +3,20 @@
  * Plays a short urgent news-intro tone using Web Audio API.
  * No external files needed — generates the sound programmatically.
  */
+import { audio } from '../services/audio.js';
 
 let audioCtx = null;
-
 function getAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
 
 /**
  * Play a short "breaking news" sting: two ascending tones + a subtle hum.
- * Total duration: ~1.2 seconds.
+ * Total duration: ~1.2 seconds. Respects the global SFX mute toggle.
  */
 export function playNewsSting() {
+  if (audio.sfxMuted) return; // Respect mute toggle
   try {
     const ctx = getAudioContext();
     const now = ctx.currentTime;

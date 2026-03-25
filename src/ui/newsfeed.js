@@ -4,6 +4,15 @@
  * Falls back to simulated headlines if offline or rate-limited
  */
 
+/** Escape HTML special chars to prevent XSS from RSS content */
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 let feedPanel = null;
 let updateInterval = null;
 let isCollapsed = false;
@@ -190,22 +199,7 @@ async function renderNews() {
     }));
   }
 
-  body.innerHTML = news.map(item => {
-    const priorityClass = item.priority === 'urgent' ? 'news-urgent' : item.priority === 'high' ? 'news-high' : 'news-normal';
-    const sourceTag = item.source ? `<span class="news-source">${item.source}</span>` : '';
-    return `
-      <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="news-item-link">
-        <div class="news-item ${priorityClass}">
-          <div class="news-item-header">
-            <span class="news-cat">${item.cat}</span>
-            <span class="news-time">${item.time}</span>
-          </div>
-          <div class="news-item-text">${item.icon} ${item.text}</div>
-          <div class="news-item-region">${item.region} ${sourceTag}</div>
-        </div>
-      </a>
-    `;
-  }).join('');
+  body.innerHTML = renderNewsItems(news);
 }
 
 /**
@@ -233,18 +227,26 @@ function renderFallbackNews() {
     time: `${Math.floor(Math.random() * 3) + 1}h ago`,
     source: 'VIGILENT Intel',
   }));
-  body.innerHTML = news.map(item => {
+  body.innerHTML = renderNewsItems(news);
+}
+
+/**
+ * Shared news item renderer (used by both live and fallback paths).
+ * HTML-escapes headline text to prevent XSS from untrusted RSS content.
+ */
+function renderNewsItems(news) {
+  return news.map(item => {
     const priorityClass = item.priority === 'urgent' ? 'news-urgent' : item.priority === 'high' ? 'news-high' : 'news-normal';
-    const sourceTag = item.source ? `<span class="news-source">${item.source}</span>` : '';
+    const sourceTag = item.source ? `<span class="news-source">${escapeHTML(item.source)}</span>` : '';
     return `
-      <a href="${item.url || '#'}" target="_blank" rel="noopener noreferrer" class="news-item-link">
+      <a href="${escapeHTML(item.url || '#')}" target="_blank" rel="noopener noreferrer" class="news-item-link">
         <div class="news-item ${priorityClass}">
           <div class="news-item-header">
-            <span class="news-cat">${item.cat}</span>
-            <span class="news-time">${item.time}</span>
+            <span class="news-cat">${escapeHTML(item.cat)}</span>
+            <span class="news-time">${escapeHTML(item.time)}</span>
           </div>
-          <div class="news-item-text">${item.icon} ${item.text}</div>
-          <div class="news-item-region">${item.region} ${sourceTag}</div>
+          <div class="news-item-text">${item.icon} ${escapeHTML(item.text)}</div>
+          <div class="news-item-region">${escapeHTML(item.region)} ${sourceTag}</div>
         </div>
       </a>
     `;
@@ -381,6 +383,6 @@ export function restoreNewsFeed() {
   // Re-render news and restart interval
   renderNews();
   if (!updateInterval) {
-    updateInterval = setInterval(renderNews, 120000);
+    updateInterval = setInterval(renderNews, 300000);
   }
 }

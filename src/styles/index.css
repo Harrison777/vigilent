@@ -374,6 +374,35 @@ html, body {
 
 /* Removed Spy Radar overlay CSS here as it is now inlined in index.html to guarantee 0-frame rendering */
 
+/* ── SFX Toggle — fixed bottom-left ── */
+#sfxToggleBtn {
+  position: fixed;
+  bottom: calc(var(--timeline-height, 80px) + 8px);
+  left: 12px;
+  z-index: 300;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg-glass, rgba(17, 24, 39, 0.85));
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: all 0.25s ease;
+  margin: 0 !important;
+}
+#sfxToggleBtn:hover {
+  background: rgba(26, 35, 50, 0.95);
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.5);
+  transform: scale(1.1);
+}
+#sfxToggleBtn .material-symbols-outlined {
+  font-size: 20px;
+}
+
 /* ==============================
    FINANCIAL TICKER
    ============================== */
@@ -484,15 +513,31 @@ html, body {
   width: 48px;
   overflow: hidden;
 }
+.news-feed-panel.collapsed .news-feed-header {
+  padding: 10px 0;
+  justify-content: center;
+}
 .news-feed-panel.collapsed .news-feed-body,
 .news-feed-panel.collapsed .news-feed-title span:not(.material-symbols-outlined) {
   display: none;
 }
+.news-feed-panel.collapsed .news-feed-title {
+  font-size: 0;
+  gap: 0;
+}
 .news-feed-panel.collapsed .news-feed-title .material-symbols-outlined {
+  font-size: 20px;
   margin-right: 0;
+}
+.news-feed-panel.collapsed .news-toggle-btn {
+  position: absolute;
+  top: 10px;
+  right: 2px;
+  z-index: 10;
 }
 
 .news-feed-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;

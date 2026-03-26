@@ -8,6 +8,7 @@ import './styles/timeline.css';
 import './styles/agent.css';
 import './styles/navigator.css';
 import './styles/auth.css';
+import './styles/mobile.css';
 import 'cesium/Build/Cesium/Widgets/widgets.css';
 import * as Cesium from 'cesium';
 
@@ -264,6 +265,32 @@ if (sfxBtn) {
   });
   // Set initial visual state
   updateSfxBtn();
+}
+
+// ============================================================
+// MOBILE HANDLERS
+// ============================================================
+
+// News FAB: toggle news feed panel on mobile
+const newsFab = document.getElementById('newsFab');
+const newsFeedPanel = document.querySelector('.news-feed-panel');
+if (newsFab && newsFeedPanel) {
+  newsFab.addEventListener('click', () => {
+    newsFeedPanel.classList.toggle('mobile-visible');
+    const icon = newsFab.querySelector('.material-symbols-outlined');
+    icon.textContent = newsFeedPanel.classList.contains('mobile-visible') ? 'close' : 'newspaper';
+  });
+}
+
+// Auto-close sidebar on mobile after toggling a layer
+const sidebar = document.getElementById('sidebar');
+if (sidebar) {
+  sidebar.addEventListener('change', (e) => {
+    if (e.target.matches('[data-layer]') && window.innerWidth <= 768) {
+      // Small delay so the user sees the toggle feedback
+      setTimeout(() => sidebar.classList.remove('open'), 300);
+    }
+  });
 }
 
 document.addEventListener('DOMContentLoaded', boot);

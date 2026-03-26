@@ -1,0 +1,460 @@
+/* ══════════════════════════════════════════════════════
+   VIGILENT — Mobile Responsive Overrides
+   Breakpoints: 768px (tablet), 480px (phone)
+   ══════════════════════════════════════════════════════ */
+
+/* ═══════ TABLET + PHONE (≤768px) ═══════ */
+@media (max-width: 768px) {
+
+  /* ── ROOT ADJUSTMENTS ── */
+  :root {
+    --sidebar-width: 100vw;
+    --topbar-height: 48px;
+    --timeline-height: 56px;
+  }
+
+  /* ── TOP BAR ── */
+  #topBar {
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  /* Hide verbose brand text on mobile */
+  .brand-tag {
+    display: none !important;
+  }
+  .brand h1 {
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+  .brand-logo {
+    height: 26px;
+  }
+
+  /* Hide all HUD readouts on mobile — too dense */
+  .hud-readout,
+  .hud-divider {
+    display: none !important;
+  }
+
+  /* Keep only the mute button visible in top-bar-right */
+  .top-bar-right {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Search bar fills available space */
+  .top-bar-center {
+    max-width: none;
+    margin: 0 6px;
+    flex: 1;
+    min-width: 0;
+  }
+  #searchInput {
+    font-size: 12px;
+    padding: 8px 8px;
+  }
+  #searchInput::placeholder {
+    font-size: 11px;
+  }
+
+  /* Hide financial ticker on mobile — eats vertical space */
+  .financial-ticker,
+  .financial-ticker.visible {
+    display: none !important;
+  }
+
+  /* Auth button — icon only on mobile */
+  #authBtn {
+    padding: 6px;
+    gap: 0;
+    font-size: 0;
+    letter-spacing: 0;
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+  }
+  #authBtn .material-symbols-outlined {
+    font-size: 18px;
+  }
+
+  /* User badge — hide name + role, show avatar only */
+  .user-name,
+  .user-role-tag {
+    display: none;
+  }
+
+  /* ── SIDEBAR (full-screen overlay) ── */
+  #sidebar {
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    z-index: 500;
+    border-right: none;
+    background: rgba(10, 14, 23, 0.97);
+    padding-top: var(--topbar-height);
+  }
+
+  /* Touch-friendly toggle targets */
+  .layer-toggle {
+    padding: 10px 12px;
+    min-height: 44px;
+  }
+  .toggle-track {
+    width: 38px;
+    height: 20px;
+  }
+  .toggle-thumb {
+    width: 14px;
+    height: 14px;
+  }
+  .layer-toggle input:checked ~ .toggle-track .toggle-thumb {
+    left: 20px;
+  }
+
+  /* Shader mode grid — 2 cols */
+  .shader-modes {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .shader-btn {
+    padding: 12px 8px;
+    font-size: 9px;
+  }
+
+  /* ── AGENT PANEL ── */
+  .agent-panel {
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    right: 0;
+    bottom: 0;
+    max-height: none;
+    border-radius: 0;
+    z-index: 450;
+    overflow-y: auto;
+  }
+  .agent-briefing {
+    padding: 12px;
+  }
+  .agent-event-card {
+    padding: 10px 8px;
+    min-height: 44px;
+  }
+  .agent-tour-btn {
+    padding: 14px;
+    font-size: 12px;
+  }
+
+  /* ── NEWS FEED PANEL ── */
+  .news-feed-panel {
+    position: fixed;
+    top: auto;
+    bottom: var(--timeline-height);
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 50vh;
+    border-radius: 16px 16px 0 0;
+    border-bottom: none;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .news-feed-panel.mobile-visible {
+    transform: translateY(0);
+  }
+  /* Start collapsed on mobile */
+  .news-feed-panel:not(.mobile-visible) {
+    pointer-events: none;
+  }
+
+  /* ── NEWS FAB TOGGLE ── */
+  .news-fab {
+    display: flex !important;
+  }
+
+  /* ── INFO PANEL (bottom sheet) ── */
+  .info-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 60vh;
+    border-radius: 16px 16px 0 0;
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  /* ── CORRELATION PANEL ── */
+  .correlation-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 50vh;
+    border-radius: 16px 16px 0 0;
+  }
+
+  /* ── STATS BAR ── */
+  #statsBar {
+    gap: 0;
+    padding: 2px 4px;
+  }
+  .stat-item {
+    padding: 2px 6px;
+    gap: 2px;
+  }
+  .stat-label {
+    display: none;
+  }
+  .stat-count {
+    font-size: 10px;
+    min-width: 14px;
+  }
+  .stat-item .material-symbols-outlined {
+    font-size: 12px;
+  }
+
+  /* ── TIMELINE ── */
+  #timelineContainer {
+    height: var(--timeline-height);
+    padding: 0 10px;
+    gap: 8px;
+  }
+  /* Hide filter chips on mobile */
+  .timeline-filters {
+    display: none !important;
+  }
+  .timeline-date {
+    font-size: 10px;
+  }
+  #timelineSpeedBtn {
+    font-size: 10px;
+    padding: 0 6px;
+  }
+
+  /* ── NAVIGATOR TOUR ── */
+  #navigatorStopList {
+    width: 100vw;
+    top: var(--topbar-height);
+    bottom: 50px;
+    z-index: 1200;
+  }
+  .nav-stop-name {
+    font-size: 11px;
+  }
+
+  /* Navigator HUD bar — compact */
+  #navigatorHUD {
+    padding: 0 8px;
+    gap: 6px;
+    height: 50px;
+  }
+  .nav-title {
+    font-size: 10px;
+    max-width: 120px;
+  }
+  .nav-lecture {
+    font-size: 11px;
+  }
+  .nav-state {
+    font-size: 8px;
+  }
+  .nav-duration {
+    display: none;
+  }
+  .nav-camera-style {
+    display: none;
+  }
+  .nav-source-link {
+    display: none;
+  }
+
+  /* ── FINANCIAL TICKER ── */
+  .financial-ticker {
+    height: 28px;
+  }
+  .ticker-item {
+    font-size: 10px;
+    padding: 0 8px;
+  }
+
+  /* ── LIVE TICKER ── */
+  .live-ticker {
+    height: 32px;
+  }
+  .ticker-label {
+    font-size: 9px;
+    padding: 0 8px;
+    letter-spacing: 1px;
+  }
+  .ticker-content {
+    font-size: 10px;
+  }
+}
+
+/* ═══════ PHONE ONLY (≤480px) ═══════ */
+@media (max-width: 480px) {
+
+  :root {
+    --topbar-height: 44px;
+    --timeline-height: 50px;
+  }
+
+  /* Even more compact top bar */
+  #topBar {
+    padding: 0 6px;
+  }
+  .brand h1 {
+    font-size: 11px;
+    letter-spacing: 1px;
+  }
+  .brand-logo {
+    height: 22px;
+  }
+  .top-bar-left {
+    gap: 6px;
+  }
+
+  /* Smaller icon buttons */
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  #searchInput {
+    font-size: 11px;
+    padding: 7px 6px;
+  }
+
+  /* Agent panel event cards — more compact */
+  .agent-event-title {
+    font-size: 10px;
+  }
+  .agent-event-meta {
+    font-size: 8px;
+  }
+  .agent-summary {
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+  .agent-briefing-header {
+    font-size: 10px;
+    gap: 6px;
+  }
+
+  /* Bottom sheet heights reduced */
+  .news-feed-panel {
+    max-height: 60vh;
+  }
+  .info-panel {
+    max-height: 70vh;
+  }
+
+  /* Stats bar even more compact */
+  .stat-item {
+    padding: 2px 4px;
+  }
+  .stat-item .material-symbols-outlined {
+    font-size: 11px;
+  }
+  .stat-count {
+    font-size: 9px;
+  }
+
+  /* Timeline ultra-compact */
+  #timelineContainer {
+    padding: 0 6px;
+    gap: 4px;
+  }
+  .timeline-date {
+    font-size: 9px;
+  }
+
+  /* Navigator HUD — smaller */
+  #navigatorHUD {
+    height: 46px;
+    padding: 0 6px;
+    gap: 4px;
+  }
+  .nav-title {
+    font-size: 9px;
+    max-width: 80px;
+  }
+  .nav-controls button,
+  .nav-end-controls button {
+    width: 30px;
+    height: 30px;
+  }
+  .nav-controls button .material-symbols-outlined,
+  .nav-end-controls button .material-symbols-outlined {
+    font-size: 16px;
+  }
+  .nav-stop-info {
+    font-size: 9px;
+    min-width: 30px;
+  }
+  .nav-lecture {
+    font-size: 10px;
+  }
+}
+
+/* ═══════ NEWS FAB (hidden on desktop) ═══════ */
+.news-fab {
+  display: none;
+  position: fixed;
+  bottom: calc(var(--timeline-height, 56px) + 8px);
+  right: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-glass, rgba(17, 24, 39, 0.85));
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--accent-cyan-dim, rgba(74, 144, 217, 0.3));
+  color: var(--accent-cyan, #4A90D9);
+  cursor: pointer;
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease;
+}
+.news-fab:hover {
+  background: var(--bg-glass-hover, rgba(26, 35, 50, 0.95));
+  box-shadow: 0 0 16px var(--accent-cyan-dim, rgba(74, 144, 217, 0.3));
+}
+.news-fab .material-symbols-outlined {
+  font-size: 22px;
+}
+
+/* ═══════ TOUCH OPTIMIZATIONS ═══════ */
+@media (hover: none) and (pointer: coarse) {
+  /* Always show fly icons on touch devices */
+  .agent-event-fly {
+    opacity: 0.5 !important;
+  }
+
+  /* Prevent text selection on interactive elements */
+  .icon-btn,
+  .layer-toggle,
+  .shader-btn,
+  .filter-chip,
+  .nav-btn,
+  .agent-tour-btn {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    user-select: none;
+  }
+
+  /* Larger touch targets for scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+}

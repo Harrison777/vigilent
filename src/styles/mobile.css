@@ -85,15 +85,20 @@
     display: none;
   }
 
-  /* ── SIDEBAR (full-screen overlay) ── */
+  /* ── SIDEBAR (full-screen overlay, hidden by default) ── */
   #sidebar {
     width: 100vw;
     height: 100vh;
     top: 0;
+    left: 0;
     z-index: 500;
     border-right: none;
     background: rgba(10, 14, 23, 0.97);
     padding-top: var(--topbar-height);
+    transform: translateX(-100%);
+  }
+  #sidebar.open {
+    transform: translateX(0);
   }
 
   /* Touch-friendly toggle targets */

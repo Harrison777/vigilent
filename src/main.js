@@ -285,6 +285,11 @@ if (newsFab && newsFeedPanel) {
 // Auto-close sidebar on mobile after toggling a layer
 const sidebar = document.getElementById('sidebar');
 if (sidebar) {
+  // Force sidebar closed on mobile at startup
+  if (window.innerWidth <= 768) {
+    sidebar.classList.remove('open');
+  }
+
   sidebar.addEventListener('change', (e) => {
     if (e.target.matches('[data-layer]') && window.innerWidth <= 768) {
       // Small delay so the user sees the toggle feedback

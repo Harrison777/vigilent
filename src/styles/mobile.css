@@ -3,6 +3,11 @@
    Breakpoints: 768px (tablet), 480px (phone)
    ══════════════════════════════════════════════════════ */
 
+/* ── Sidebar close button — hidden on desktop ── */
+.sidebar-close-btn {
+  display: none;
+}
+
 /* ═══════ TABLET + PHONE (≤768px) ═══════ */
 @media (max-width: 768px) {
 
@@ -101,6 +106,31 @@
     transform: translateX(0);
   }
 
+  /* Sidebar close button — visible on mobile */
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    top: calc(var(--topbar-height) + 8px);
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #fff;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.2s;
+  }
+  .sidebar-close-btn:active {
+    background: rgba(255, 255, 255, 0.2);
+  }
+  .sidebar-close-btn .material-symbols-outlined {
+    font-size: 22px;
+  }
+
   /* Touch-friendly toggle targets */
   .layer-toggle {
     padding: 10px 12px;
@@ -168,6 +198,7 @@
   }
   .news-feed-panel.mobile-visible {
     transform: translateY(0);
+    pointer-events: auto;
   }
   /* Start collapsed on mobile */
   .news-feed-panel:not(.mobile-visible) {

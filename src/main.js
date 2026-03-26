@@ -282,17 +282,26 @@ if (newsFab && newsFeedPanel) {
   });
 }
 
-// Auto-close sidebar on mobile after toggling a layer
+// Sidebar: open on desktop, closed on mobile
 const sidebar = document.getElementById('sidebar');
 if (sidebar) {
-  // Force sidebar closed on mobile at startup
-  if (window.innerWidth <= 768) {
+  if (window.innerWidth > 768) {
+    sidebar.classList.add('open');
+  } else {
     sidebar.classList.remove('open');
   }
 
+  // Close button inside sidebar (mobile overlay)
+  const sidebarCloseBtn = document.getElementById('sidebarClose');
+  if (sidebarCloseBtn) {
+    sidebarCloseBtn.addEventListener('click', () => {
+      sidebar.classList.remove('open');
+    });
+  }
+
+  // Auto-close sidebar on mobile after toggling a layer
   sidebar.addEventListener('change', (e) => {
     if (e.target.matches('[data-layer]') && window.innerWidth <= 768) {
-      // Small delay so the user sees the toggle feedback
       setTimeout(() => sidebar.classList.remove('open'), 300);
     }
   });

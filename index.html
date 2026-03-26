@@ -287,7 +287,10 @@
         <button id="searchModeToggle" class="search-mode-toggle" title="Toggle Agent Mode">
           <span class="material-symbols-outlined">search</span>
         </button>
-        <input type="text" id="searchInput" placeholder="Search location... (e.g., Pentagon, Kremlin, Beijing)" autocomplete="off">
+        <input type="text" id="searchInput" placeholder="Search location... (e.g., Pentagon, Kremlin, Beijing)" autocomplete="off" enterkeyhint="send" inputmode="search">
+        <button id="agentSendBtn" class="agent-send-btn" title="Send">
+          <span class="material-symbols-outlined">send</span>
+        </button>
         <div id="searchResults" class="search-dropdown"></div>
         <div id="agentPanel" class="agent-panel hidden"></div>
       </div>

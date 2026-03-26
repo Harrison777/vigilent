@@ -68,6 +68,10 @@
   #searchInput::placeholder {
     font-size: 11px;
   }
+  /* Show send button on mobile */
+  .agent-send-btn {
+    display: flex;
+  }
 
   /* Hide financial ticker on mobile — eats vertical space */
   .financial-ticker,

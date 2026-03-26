@@ -1028,6 +1028,18 @@ export function initAgent() {
     }
   });
 
+  // Send button (essential for mobile where Enter key may not fire keydown)
+  const sendBtn = document.getElementById('agentSendBtn');
+  if (sendBtn) {
+    sendBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (agentMode) {
+        handleAgentQuery(input.value);
+      }
+    });
+  }
+
   document.addEventListener('click', (e) => {
     if (agentPanel && !e.target.closest('#searchContainer')) {
       agentPanel.classList.add('hidden');

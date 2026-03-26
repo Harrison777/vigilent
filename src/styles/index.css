@@ -213,6 +213,25 @@ html, body {
   color: var(--text-dim);
 }
 
+/* Agent send button — hidden on desktop, visible on mobile */
+.agent-send-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-cyan);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  width: 34px;
+  height: 34px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+.agent-send-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
 .search-dropdown {
   position: absolute;
   top: 100%;

@@ -417,7 +417,18 @@ function renderThinking(panel, phase = 'research') {
 }
 
 function renderBriefing(panel, results) {
-  const { events, news, historical, regions, summary } = results;
+  const { events, news, regions, summary } = results;
+  // Sort historical events chronologically (BC dates first)
+  const historical = [...(results.historical || [])].sort((a, b) => {
+    const parseY = (y) => {
+      const s = String(y || '').trim().replace(/^~/, '');
+      const m = s.match(/(\d+)/);
+      if (!m) return 0;
+      const n = parseInt(m[1], 10);
+      return s.toUpperCase().includes('BC') ? -n : n;
+    };
+    return parseY(a.year) - parseY(b.year);
+  });
   const totalMarkers = events.length + news.filter(n => n.lat && n.lon).length + historical.length;
   const isHistorical = historical.length > 0;
 
@@ -596,13 +607,18 @@ function renderBriefing(panel, results) {
     const tourBtn = panel.querySelector('#startTourBtn');
     if (tourBtn) {
       tourBtn.addEventListener('click', () => {
-        panel.classList.add('hidden');
-        clearAgentMarkers(); // Hide static markers before tour begins
-        if (hasLLMCampaign) {
-          // Pass the LLM-generated campaign directly to navigator
-          startNavigator(results._llmCampaign.campaign_path, results._llmCampaign.metadata?.title || 'Campaign', selectedLength, results._llmCampaign);
-        } else {
-          startNavigator(tourEvents, dominantEra[0], selectedLength);
+        try {
+          panel.classList.add('hidden');
+          clearAgentMarkers(); // Hide static markers before tour begins
+          if (hasLLMCampaign) {
+            // Pass the LLM-generated campaign directly to navigator
+            startNavigator(results._llmCampaign.campaign_path, results._llmCampaign.metadata?.title || 'Campaign', selectedLength, results._llmCampaign);
+          } else {
+            startNavigator(tourEvents, dominantEra[0], selectedLength);
+          }
+        } catch (err) {
+          console.error('[AGENT] Tour launch failed:', err);
+          panel.classList.remove('hidden');
         }
       });
     }

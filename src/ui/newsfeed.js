@@ -302,10 +302,11 @@ export function showHistoricalTimeline(historicalEvents) {
   // Sort events chronologically (parse year for sorting)
   const sorted = [...historicalEvents].sort((a, b) => {
     const parseYear = (y) => {
-      const str = String(y).replace(/[–—].*/,'').trim();
-      if (str.includes('BC')) return -parseInt(str);
-      if (str.includes('AD')) return parseInt(str);
-      return parseInt(str) || 0;
+      const str = String(y || '').replace(/^~/, '').replace(/[–—].*/, '').trim();
+      const m = str.match(/(\d+)/);
+      if (!m) return 0;
+      const n = parseInt(m[1], 10);
+      return str.toUpperCase().includes('BC') ? -n : n;
     };
     return parseYear(a.year) - parseYear(b.year);
   });

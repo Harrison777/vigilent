@@ -241,4 +241,29 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
+// SFX Mute Toggle Button — wires #sfxToggleBtn in header bar
+const sfxBtn = document.getElementById('sfxToggleBtn');
+if (sfxBtn) {
+  const updateSfxBtn = () => {
+    const icon = sfxBtn.querySelector('.material-symbols-outlined');
+    if (audio.sfxMuted) {
+      icon.textContent = 'volume_off';
+      sfxBtn.title = 'Enable UI Sound Effects';
+      sfxBtn.style.borderColor = 'rgba(255, 23, 68, 0.4)';
+      sfxBtn.style.color = 'var(--accent-red)';
+    } else {
+      icon.textContent = 'volume_up';
+      sfxBtn.title = 'Mute UI Sound Effects';
+      sfxBtn.style.borderColor = 'rgba(0, 230, 118, 0.4)';
+      sfxBtn.style.color = 'var(--accent-green, #00e676)';
+    }
+  };
+  sfxBtn.addEventListener('click', () => {
+    audio.toggleMute();
+    updateSfxBtn();
+  });
+  // Set initial visual state
+  updateSfxBtn();
+}
+
 document.addEventListener('DOMContentLoaded', boot);

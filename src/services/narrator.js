@@ -29,7 +29,7 @@ OUTPUT: Return ONLY valid JSON (no markdown, no code fences) with this exact str
     {
       "title": "Event Name",
       "year": "Date or year",
-      "type": "battle|siege|conquest|political|achievement|death|campaign|treaty|war|disaster|crisis",
+      "type": "battle|siege|conquest|political|achievement|death|campaign|treaty|war|disaster|crisis|ministry|teaching|miracle|prophecy|revelation|martyrdom|trial|voyage",
       "coordinates": { "lat": <number>, "lng": <number> },
       "lecture_segment": "Documentary narration for this stop...",
       "source_url": "https://actual-source-url.com",
@@ -66,7 +66,17 @@ SOURCE RULES:
 - Use actual source URLs from the provided results.
 - If using your own historical knowledge to generate a stop, provide a highly relevant Wikipedia or encyclopedia URL.
 
-COORDINATES: You MUST provide accurate lat/lng for real-world locations.`;
+COORDINATES: You MUST provide accurate lat/lng for real-world locations.
+
+BIBLICAL CONTENT RULES (when the topic involves the Bible, Jesus Christ, Paul, apostles, the early church, or scripture):
+- You MUST quote or paraphrase the relevant scripture passage at each stop. Include the full book, chapter, and verse citation (e.g., "John 3:16", "Acts 9:1-19").
+- Treat the Bible text with reverence — read it as sacred scripture, not merely as a historical source.
+- Maintain strict chronological order following the biblical narrative (Gospels for Jesus, Acts for Paul).
+- Use the event types: ministry, teaching, miracle, prophecy, revelation, martyrdom, trial, voyage.
+- Connect each stop by explaining the theological and narrative significance of the transition.
+- For Jesus's ministry: follow the Gospel harmonization from birth through ascension.
+- For Paul's missions: follow Acts chronologically through all missionary journeys and the voyage to Rome.
+- Include the human drama: the disciples' fear, Paul's suffering, the crowds' reactions, the political tensions with Rome and the Sanhedrin.`;
 
 // ── News Anchor Prompt ─────────────────────────────────────────
 

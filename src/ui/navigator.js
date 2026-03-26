@@ -416,9 +416,16 @@ function buildNarrative(event, prevStop, index, totalStops, isClimax, narrationL
 }
 
 function parseYearNum(y) {
-  const s = String(y).trim();
-  if (s.includes('BC')) return -parseInt(s);
-  return parseInt(s.replace(/\s*AD\s*/i, ''));
+  const s = String(y).trim().replace(/^~/, '');  // strip leading ~
+  // Extract the first number from the string (handles "4 BC–26 AD", "30 AD", "5 BC")
+  const match = s.match(/(\d+)/);
+  if (!match) return 0;
+  const num = parseInt(match[1], 10);
+  // If the string contains BC before any AD, negate
+  if (s.toUpperCase().indexOf('BC') !== -1 && (s.toUpperCase().indexOf('AD') === -1 || s.toUpperCase().indexOf('BC') < s.toUpperCase().indexOf('AD'))) {
+    return -num;
+  }
+  return num;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -562,7 +569,7 @@ export function buildCampaign(events, eraTitle, tourLength = 'medium') {
         heading,
         pitch: style.pitch,
         duration,
-        dwell: Math.max(2.5, lecture.length / 14),
+        dwell: Math.min(6, Math.max(2, lecture.length / 30)),
       },
     });
   }
@@ -694,35 +701,73 @@ export class CampaignPlayer {
     }
 
     const stop = path[this.currentStop];
-    this._emit('stop-change', { stop, index: this.currentStop, total: path.length });
 
-    // Reveal fog of war at this stop
-    this._revealFogAt(stop.coordinates);
-
-    // Animated trail from previous stop (starts growing during flight)
-    if (this.currentStop > 0) {
-      const prev = path[this.currentStop - 1];
-      this._animateTrail(prev.coordinates, stop.coordinates, this.currentStop, stop.map_action.duration);
-      this._fadeOldTrails();
+    // ── Defensive: ensure stop has required fields ──
+    if (!stop) {
+      console.warn(`[NAV] Stop ${this.currentStop} is null, skipping`);
+      if (this.currentStop < path.length - 1) { await this._advance(); }
+      return;
+    }
+    if (!stop.coordinates || typeof stop.coordinates.lat !== 'number' || typeof stop.coordinates.lng !== 'number') {
+      console.warn(`[NAV] Stop ${this.currentStop} missing valid coordinates, skipping`, stop);
+      if (this.currentStop < path.length - 1) { await this._advance(); }
+      return;
     }
 
-    // Marker
-    this._updateMarkers(stop, this.currentStop);
+    // Ensure map_action exists with safe defaults
+    if (!stop.map_action) stop.map_action = {};
+    stop.map_action.duration = Math.min(5, stop.map_action.duration || 3);
+    stop.map_action.dwell    = Math.min(6, stop.map_action.dwell    || 2);
+    stop.map_action.altitude = stop.map_action.altitude || 500000;
+    stop.map_action.heading  = stop.map_action.heading  || 0;
+    stop.map_action.pitch    = stop.map_action.pitch    || -35;
 
-    // Fly
-    this._setState('flying');
-    await this._flyTo(stop);
+    try {
+      this._emit('stop-change', { stop, index: this.currentStop, total: path.length });
 
-    // Narrate (via TTS service: AI voice → browser fallback → silent)
-    this._setState('narrating');
-    await ttsService.speak(stop.lecture_segment);
+      // Reveal fog of war at this stop
+      this._revealFogAt(stop.coordinates);
 
-    // Dwell
-    await this._dwell(stop.map_action.dwell * 1000);
+      // Animated trail from previous stop (starts growing during flight)
+      if (this.currentStop > 0) {
+        const prev = path[this.currentStop - 1];
+        if (prev?.coordinates) {
+          this._animateTrail(prev.coordinates, stop.coordinates, this.currentStop, stop.map_action.duration);
+          this._fadeOldTrails();
+        }
+      }
 
-    // Auto-advance
-    if (this.state !== 'paused' && this.state !== 'idle') {
-      await this._advance();
+      // Marker
+      this._updateMarkers(stop, this.currentStop);
+
+      // Fly
+      this._setState('flying');
+      await this._flyTo(stop);
+
+      // Narrate (via TTS service: AI voice → browser fallback → silent)
+      this._setState('narrating');
+      if (stop.lecture_segment) {
+        await ttsService.speak(stop.lecture_segment).catch(err => {
+          console.warn('[NAV] TTS error, continuing:', err.message || err);
+        });
+      }
+
+      // Dwell
+      await this._dwell(stop.map_action.dwell * 1000);
+
+      // Auto-advance (use setTimeout to avoid stack overflow on 25+ stop tours)
+      if (this.state !== 'paused' && this.state !== 'idle') {
+        setTimeout(() => this._advance(), 0);
+      }
+    } catch (err) {
+      console.error(`[NAV] Error at stop ${this.currentStop}:`, err);
+      // Attempt to skip the broken stop and continue the tour
+      if (this.state !== 'idle' && this.currentStop < path.length - 1) {
+        setTimeout(() => this._advance(), 500);
+      } else {
+        this._setState('complete');
+        this._emit('complete', this.campaign.metadata);
+      }
     }
   }
 
@@ -1059,6 +1104,8 @@ export function startNavigator(events, eraTitle, tourLength = 'medium', llmCampa
 
   let campaign;
   if (llmCampaign && llmCampaign.campaign_path && llmCampaign.campaign_path.length >= 2) {
+    // Sort LLM campaign stops chronologically by year
+    llmCampaign.campaign_path.sort((a, b) => parseYearNum(a.year) - parseYearNum(b.year));
     // LLM-generated campaign — normalize the stop format
     campaign = {
       metadata: {
@@ -1089,8 +1136,8 @@ export function startNavigator(events, eraTitle, tourLength = 'medium', llmCampa
           altitude: stop.map_action?.altitude || 1200000,
           heading: stop.map_action?.heading || 0,
           pitch: stop.map_action?.pitch || 30,
-          duration: stop.map_action?.duration || 5,
-          dwell: stop.map_action?.dwell || Math.max(3, (stop.lecture_segment || '').length / 14),
+          duration: Math.min(5, stop.map_action?.duration || 3),
+          dwell: Math.min(6, stop.map_action?.dwell || Math.max(2, (stop.lecture_segment || '').length / 30)),
         },
       })),
     };

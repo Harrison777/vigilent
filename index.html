@@ -17,6 +17,8 @@
       --accent-cyan: #4A90D9;
       --accent-cyan-dim: rgba(74, 144, 217, 0.3);
       --accent-red: #ff1744;
+      --accent-green: #00e676;
+      --accent-amber: #ffc107;
       --font-mono: 'JetBrains Mono', 'Consolas', monospace;
     }
 
@@ -37,107 +39,192 @@
       pointer-events: none;
     }
 
+    /* ── RADAR ── */
     .radar-container {
-      width: 140px;
-      height: 140px;
+      width: 180px;
+      height: 180px;
       position: relative;
       border-radius: 50%;
-      border: 1px solid var(--accent-cyan);
-      box-shadow: 0 0 20px rgba(74, 144, 217, 0.4), inset 0 0 30px rgba(74, 144, 217, 0.2);
-      background: rgba(10, 14, 23, 0.85);
+      border: 2px solid var(--accent-cyan);
+      box-shadow: 0 0 30px rgba(74, 144, 217, 0.5), inset 0 0 40px rgba(74, 144, 217, 0.15),
+                  0 0 60px rgba(74, 144, 217, 0.2);
+      background: radial-gradient(circle, rgba(10, 14, 23, 0.7) 0%, rgba(10, 14, 23, 0.95) 100%);
       overflow: hidden;
     }
 
+    /* Range rings */
+    .radar-rings {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+    }
+    .radar-rings::before {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 60%; height: 60%;
+      border: 1px solid rgba(74, 144, 217, 0.25);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .radar-rings::after {
+      content: '';
+      position: absolute;
+      top: 50%; left: 50%;
+      width: 30%; height: 30%;
+      border: 1px solid rgba(74, 144, 217, 0.2);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Grid crosshairs */
     .radar-grid {
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      background-image: 
-        linear-gradient(rgba(74, 144, 217, 0.2) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(74, 144, 217, 0.2) 1px, transparent 1px);
-      background-size: 20px 20px;
-      background-position: center center;
     }
     .radar-grid::before {
       content: '';
       position: absolute;
-      inset: 50%;
-      width: 100%;
+      top: 50%; left: 0; right: 0;
       height: 1px;
-      background: rgba(74, 144, 217, 0.6);
-      transform: translate(-50%, -50%);
+      background: linear-gradient(90deg, transparent, rgba(74, 144, 217, 0.4), transparent);
     }
     .radar-grid::after {
       content: '';
       position: absolute;
-      inset: 50%;
+      left: 50%; top: 0; bottom: 0;
       width: 1px;
-      height: 100%;
-      background: rgba(74, 144, 217, 0.6);
-      transform: translate(-50%, -50%);
+      background: linear-gradient(180deg, transparent, rgba(74, 144, 217, 0.4), transparent);
     }
 
+    /* Sweep beam */
     .radar-scan {
       position: absolute;
       width: 50%;
       height: 50%;
       bottom: 50%;
       right: 50%;
-      background: conic-gradient(from 0deg, rgba(74,144,217,0) 0%, rgba(74,144,217,0.7) 100%);
+      background: conic-gradient(from 0deg, rgba(74,144,217,0) 0%, rgba(74,144,217,0.6) 100%);
       transform-origin: 100% 100%;
-      animation: radarSweep 2s linear infinite;
-      border-right: 2px solid var(--accent-cyan);
+      animation: radarSweep 2.5s linear infinite;
+      border-right: 2px solid rgba(74, 144, 217, 0.9);
+      filter: blur(0.5px);
+    }
+    /* Sweep afterglow trail */
+    .radar-scan::after {
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      bottom: 0;
+      right: 0;
+      background: conic-gradient(from -30deg, rgba(74,144,217,0) 0%, rgba(74,144,217,0.15) 100%);
+      transform-origin: 100% 100%;
     }
 
     @keyframes radarSweep {
       to { transform: rotate(360deg); }
     }
 
-    .radar-target {
+    /* Center pulse dot */
+    .radar-center {
       position: absolute;
-      box-sizing: border-box;
-      width: 6px;
-      height: 6px;
-      background: var(--accent-red);
+      top: 50%; left: 50%;
+      width: 6px; height: 6px;
+      background: var(--accent-cyan);
       border-radius: 50%;
-      box-shadow: 0 0 10px var(--accent-red);
-      top: 35%;
-      left: 65%;
-      animation: targetBlink 1.5s infinite step-end;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 8px var(--accent-cyan);
+      animation: centerPulse 2s ease-in-out infinite;
+    }
+    @keyframes centerPulse {
+      0%, 100% { box-shadow: 0 0 4px var(--accent-cyan); transform: translate(-50%, -50%) scale(1); }
+      50% { box-shadow: 0 0 16px var(--accent-cyan), 0 0 30px rgba(74,144,217,0.3); transform: translate(-50%, -50%) scale(1.3); }
     }
 
-    @keyframes targetBlink {
-      50% { opacity: 0; }
+    /* ── BLIPS ── */
+    .radar-blip {
+      position: absolute;
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      animation: blipAppear 2.5s ease-out infinite;
+    }
+    .radar-blip::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      animation: blipRing 2.5s ease-out infinite;
+      border: 1px solid;
+    }
+    /* Individual blip positions, colors, and delays */
+    .blip-1 { top: 28%; left: 62%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 0s; }
+    .blip-1::after { border-color: var(--accent-red); animation-delay: 0s; }
+    .blip-2 { top: 68%; left: 35%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 0.8s; }
+    .blip-2::after { border-color: var(--accent-red); animation-delay: 0.8s; }
+    .blip-3 { top: 42%; left: 22%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation-delay: 1.2s; }
+    .blip-3::after { border-color: var(--accent-green); animation-delay: 1.2s; }
+    .blip-4 { top: 20%; left: 40%; background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber); animation-delay: 0.4s; }
+    .blip-4::after { border-color: var(--accent-amber); animation-delay: 0.4s; }
+    .blip-5 { top: 58%; left: 70%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation-delay: 1.8s; }
+    .blip-5::after { border-color: var(--accent-green); animation-delay: 1.8s; }
+    .blip-6 { top: 75%; left: 55%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 2.1s; }
+    .blip-6::after { border-color: var(--accent-red); animation-delay: 2.1s; }
+
+    @keyframes blipAppear {
+      0% { opacity: 0; transform: scale(0); }
+      15% { opacity: 1; transform: scale(1.4); }
+      30% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(0.8); }
+    }
+    @keyframes blipRing {
+      0% { opacity: 0; transform: scale(0.5); }
+      15% { opacity: 0.8; transform: scale(1); }
+      60% { opacity: 0; transform: scale(2.5); }
+      100% { opacity: 0; transform: scale(3); }
     }
 
+    /* ── DECODER TEXT ── */
     .loading-decoder {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 16px;
     }
 
     .decoder-text {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       letter-spacing: 4px;
       color: var(--accent-cyan);
       text-shadow: 0 0 10px var(--accent-cyan-dim);
       animation: pulse-glow-decoder 1.5s ease-in-out infinite;
+      min-width: 280px;
+      text-align: center;
+    }
+    .decoder-sub {
+      font-family: var(--font-mono);
+      font-size: 8px;
+      font-weight: 400;
+      letter-spacing: 3px;
+      color: rgba(74, 144, 217, 0.5);
+      animation: pulse-glow-decoder 2s ease-in-out infinite 0.5s;
     }
 
     @keyframes pulse-glow-decoder {
-      0%, 100% { opacity: 0.6; }
+      0%, 100% { opacity: 0.5; }
       50% { opacity: 1; text-shadow: 0 0 20px var(--accent-cyan); }
     }
 
     .decoder-bar {
-      width: 200px;
+      width: 220px;
       height: 2px;
       background: var(--bg-tertiary);
       position: relative;
       overflow: hidden;
+      border-radius: 1px;
       box-shadow: 0 0 8px rgba(0,0,0,0.5);
     }
     .decoder-bar::after {
@@ -145,7 +232,7 @@
       position: absolute;
       top: 0; left: 0; bottom: 0;
       width: 40px;
-      background: var(--accent-cyan);
+      background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
       box-shadow: 0 0 12px var(--accent-cyan);
       animation: slideBar 1.2s infinite ease-in-out;
     }
@@ -161,12 +248,21 @@
   <!-- Spy-Themed Loading Overlay -->
   <div id="loadingOverlay">
     <div class="radar-container">
-      <div class="radar-scan"></div>
+      <div class="radar-rings"></div>
       <div class="radar-grid"></div>
-      <div class="radar-target"></div>
+      <div class="radar-scan"></div>
+      <div class="radar-center"></div>
+      <!-- Multiple animated blips -->
+      <div class="radar-blip blip-1"></div>
+      <div class="radar-blip blip-2"></div>
+      <div class="radar-blip blip-3"></div>
+      <div class="radar-blip blip-4"></div>
+      <div class="radar-blip blip-5"></div>
+      <div class="radar-blip blip-6"></div>
     </div>
     <div class="loading-decoder">
       <span class="decoder-text">DECRYPTING SECURE SATELLITE FEED...</span>
+      <span class="decoder-sub">ESTABLISHING ENCRYPTED UPLINK</span>
       <div class="decoder-bar"></div>
     </div>
   </div>

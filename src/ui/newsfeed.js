@@ -24,13 +24,18 @@ const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
 // ── Google News RSS search topics — each returns ~10 stories ──
 const NEWS_TOPICS = [
-  { query: 'military+conflict+war',      cat: 'CONFLICT',   icon: '⚔️', priority: 'high' },
-  { query: 'defense+military+troops',    cat: 'DEFENSE',    icon: '🪖', priority: 'medium' },
-  { query: 'geopolitics+sanctions+diplomacy', cat: 'DIPLOMATIC', icon: '🏛️', priority: 'medium' },
-  { query: 'stock+market+economy+oil',   cat: 'MARKETS',    icon: '📈', priority: 'medium' },
-  { query: 'cybersecurity+attack+hack',  cat: 'CYBER',      icon: '💻', priority: 'high' },
-  { query: 'missile+nuclear+weapons',    cat: 'ALERT',      icon: '⚠️', priority: 'urgent' },
-  { query: 'NATO+Russia+China+Iran',     cat: 'BREAKING',   icon: '🔴', priority: 'urgent' },
+  { query: 'military+conflict+war',           cat: 'CONFLICT',    icon: '⚔️', priority: 'high' },
+  { query: 'defense+military+troops',         cat: 'DEFENSE',     icon: '🪖', priority: 'medium' },
+  { query: 'geopolitics+sanctions+diplomacy', cat: 'DIPLOMATIC',  icon: '🏛️', priority: 'medium' },
+  { query: 'stock+market+economy+oil+trade',  cat: 'MARKETS',     icon: '📈', priority: 'medium' },
+  { query: 'cybersecurity+attack+hack+breach', cat: 'CYBER',      icon: '💻', priority: 'high' },
+  { query: 'missile+nuclear+weapons+warhead', cat: 'ALERT',       icon: '⚠️', priority: 'urgent' },
+  { query: 'NATO+Russia+China+Iran+Korea',    cat: 'BREAKING',    icon: '🔴', priority: 'urgent' },
+  { query: 'terrorism+insurgency+attack',     cat: 'TERROR',      icon: '🚨', priority: 'urgent' },
+  { query: 'earthquake+hurricane+tsunami+disaster', cat: 'DISASTER', icon: '🌊', priority: 'high' },
+  { query: 'election+coup+protest+unrest',    cat: 'POLITICAL',   icon: '🗳️', priority: 'medium' },
+  { query: 'energy+pipeline+gas+OPEC',        cat: 'ENERGY',      icon: '⛽', priority: 'medium' },
+  { query: 'space+satellite+launch+NASA',     cat: 'SPACE',       icon: '🚀', priority: 'medium' },
 ];
 
 /**
@@ -50,7 +55,7 @@ async function fetchLiveNews() {
       const data = await res.json();
       if (data.status !== 'ok' || !data.items) return [];
 
-      return data.items.slice(0, 5).map(item => {
+      return data.items.slice(0, 8).map(item => {
         // Extract source name from title (Google News format: "Headline - Source")
         const titleParts = item.title.split(' - ');
         const source = titleParts.length > 1 ? titleParts.pop().trim() : 'News';
@@ -87,7 +92,7 @@ async function fetchLiveNews() {
       return true;
     });
 
-  return unique.slice(0, 20); // top 20 stories
+  return unique.slice(0, 40); // top 40 stories
 }
 
 // ── Fallback simulated headlines (used when offline) ──
@@ -108,6 +113,22 @@ const FALLBACK_HEADLINES = [
     url: 'https://news.google.com/search?q=DDoS+NATO+banking' },
   { cat: 'DIPLOMATIC', text: 'India offers to mediate Iran-Israel ceasefire, hosts emergency talks', region: 'INDIA', icon: '🏛️', priority: 'medium',
     url: 'https://news.google.com/search?q=India+Iran+Israel+ceasefire' },
+  { cat: 'TERROR', text: 'Interpol issues red notice after coordinated bomb threats across three capitals', region: 'GLOBAL', icon: '🚨', priority: 'urgent',
+    url: 'https://news.google.com/search?q=Interpol+terror+threat' },
+  { cat: 'DISASTER', text: '7.2 magnitude earthquake strikes off coast of Indonesia, tsunami warning issued', region: 'ASIA-PACIFIC', icon: '🌊', priority: 'high',
+    url: 'https://news.google.com/search?q=Indonesia+earthquake+tsunami' },
+  { cat: 'POLITICAL', text: 'Mass protests erupt across South America over austerity measures', region: 'S. AMERICA', icon: '🗳️', priority: 'medium',
+    url: 'https://news.google.com/search?q=South+America+protests+austerity' },
+  { cat: 'ENERGY', text: 'OPEC+ announces emergency production cut, oil futures spike 6%', region: 'GLOBAL', icon: '⛽', priority: 'high',
+    url: 'https://news.google.com/search?q=OPEC+production+cut+oil' },
+  { cat: 'SPACE', text: 'SpaceX launches classified NRO reconnaissance satellite from Vandenberg', region: 'USA', icon: '🚀', priority: 'medium',
+    url: 'https://news.google.com/search?q=SpaceX+NRO+satellite+launch' },
+  { cat: 'DEFENSE', text: 'Japan scrambles F-35s after unidentified aircraft enter ADIZ', region: 'JAPAN', icon: '🪖', priority: 'high',
+    url: 'https://news.google.com/search?q=Japan+F-35+scramble+ADIZ' },
+  { cat: 'MARKETS', text: 'Global semiconductor supply chain disrupted as Taiwan raises alert level', region: 'ASIA', icon: '📈', priority: 'high',
+    url: 'https://news.google.com/search?q=semiconductor+supply+chain+Taiwan' },
+  { cat: 'BREAKING', text: 'North Korea test-fires ICBM into Sea of Japan, G7 convenes emergency session', region: 'KOREA', icon: '🔴', priority: 'urgent',
+    url: 'https://news.google.com/search?q=North+Korea+ICBM+test' },
 ];
 
 // Keep HEADLINE_TEMPLATES export for backward compatibility
@@ -169,8 +190,8 @@ async function renderNews() {
 
   let news = [];
 
-  // Try fetching live news (rate-limit to every 3 min)
-  if (Date.now() - lastFetchTime > 180000 || liveNews.length === 0) {
+  // Try fetching live news (rate-limit to every 90s)
+  if (Date.now() - lastFetchTime > 90000 || liveNews.length === 0) {
     try {
       body.innerHTML = '<div class="news-loading">Updating…</div>';
       const live = await fetchLiveNews();
@@ -209,11 +230,11 @@ export function initNewsFeed() {
   createNewsFeed();
   // Show fallback headlines INSTANTLY (no network wait)
   renderFallbackNews();
-  // Background: fetch live news after 3s, then refresh every 5 min
+  // Background: fetch live news after 2s, then refresh every 2 min
   setTimeout(async () => {
     await renderNews();
-    updateInterval = setInterval(renderNews, 300000);
-  }, 3000);
+    updateInterval = setInterval(renderNews, 120000);
+  }, 2000);
 }
 
 /**

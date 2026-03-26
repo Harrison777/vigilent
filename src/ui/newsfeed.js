@@ -13,6 +13,22 @@ function escapeHTML(str) {
     .replace(/"/g, '&quot;');
 }
 
+/** Strip HTML tags and decode entities to get plain text */
+function stripHTML(html) {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+
+/** Check if text is primarily English/Latin script */
+function isEnglish(text) {
+  if (!text) return false;
+  // Count Latin-script characters vs total
+  const latin = text.replace(/[^a-zA-Z]/g, '').length;
+  return latin / text.replace(/\s/g, '').length > 0.5;
+}
+
 let feedPanel = null;
 let updateInterval = null;
 let isCollapsed = false;
@@ -55,24 +71,34 @@ async function fetchLiveNews() {
       const data = await res.json();
       if (data.status !== 'ok' || !data.items) return [];
 
-      return data.items.slice(0, 8).map(item => {
-        // Extract source name from title (Google News format: "Headline - Source")
-        const titleParts = item.title.split(' - ');
-        const source = titleParts.length > 1 ? titleParts.pop().trim() : 'News';
-        const headline = titleParts.join(' - ').trim();
+      return data.items.slice(0, 8)
+        .map(item => {
+          // Extract source name from title (Google News format: "Headline - Source")
+          const titleParts = item.title.split(' - ');
+          const source = titleParts.length > 1 ? titleParts.pop().trim() : 'News';
+          const headline = titleParts.join(' - ').trim();
 
-        return {
-          cat: topic.cat,
-          icon: topic.icon,
-          priority: topic.priority,
-          text: headline,
-          source: source,
-          url: item.link || '#',
-          pubDate: new Date(item.pubDate),
-          region: source.toUpperCase(),
-          image: item.thumbnail || item.enclosure?.link || null,
-        };
-      });
+          // Extract plain-text summary from RSS description
+          let summary = stripHTML(item.description || '');
+          // Remove the headline if it repeats at the start of the description
+          if (summary.startsWith(headline)) summary = summary.slice(headline.length).trim();
+          // Truncate to ~140 chars
+          if (summary.length > 140) summary = summary.slice(0, 137) + '…';
+
+          return {
+            cat: topic.cat,
+            icon: topic.icon,
+            priority: topic.priority,
+            text: headline,
+            summary: summary || '',
+            source: source,
+            url: item.link || '#',
+            pubDate: new Date(item.pubDate),
+            region: source.toUpperCase(),
+            image: item.thumbnail || item.enclosure?.link || null,
+          };
+        })
+        .filter(item => isEnglish(item.text)); // drop non-English stories
     } catch {
       return [];
     }
@@ -97,37 +123,37 @@ async function fetchLiveNews() {
 
 // ── Fallback simulated headlines (used when offline) ──
 const FALLBACK_HEADLINES = [
-  { cat: 'BREAKING', text: 'IRGC confirms damage to Isfahan military complex, vows retaliation', region: 'IRAN', icon: '🔴', priority: 'urgent',
+  { cat: 'BREAKING', text: 'IRGC confirms damage to Isfahan military complex, vows retaliation', summary: 'Iranian military officials say the strike targeted a key nuclear facility. Supreme Leader vows proportional response.', region: 'IRAN', icon: '🔴', priority: 'urgent',
     url: 'https://news.google.com/search?q=IRGC+Isfahan+military' },
-  { cat: 'CONFLICT', text: 'Israeli jets intercept Iranian UAV swarm over Golan Heights', region: 'MIDDLE EAST', icon: '⚔️', priority: 'high',
+  { cat: 'CONFLICT', text: 'Israeli jets intercept Iranian UAV swarm over Golan Heights', summary: 'IDF says 15 drones neutralized before crossing border. No casualties reported. CENTCOM monitoring situation.', region: 'MIDDLE EAST', icon: '⚔️', priority: 'high',
     url: 'https://news.google.com/search?q=Israel+Iran+UAV+Golan+Heights' },
-  { cat: 'DEFENSE', text: 'Pentagon deploys additional carrier group to Persian Gulf', region: 'USA', icon: '🚢', priority: 'high',
+  { cat: 'DEFENSE', text: 'Pentagon deploys additional carrier group to Persian Gulf', summary: 'USS Gerald Ford strike group joins USS Eisenhower in the region. SecDef calls it a "precautionary measure."', region: 'USA', icon: '🚢', priority: 'high',
     url: 'https://news.google.com/search?q=Pentagon+carrier+group+Persian+Gulf' },
-  { cat: 'MARKETS', text: 'Brent crude surges past $85 on Strait of Hormuz closure threat', region: 'GLOBAL', icon: '📈', priority: 'high',
+  { cat: 'MARKETS', text: 'Brent crude surges past $85 on Strait of Hormuz closure threat', summary: 'Energy markets spike as IRGC warns of naval blockade. Analysts predict $100/barrel if tensions escalate further.', region: 'GLOBAL', icon: '📈', priority: 'high',
     url: 'https://news.google.com/search?q=Brent+crude+oil+price' },
-  { cat: 'CONFLICT', text: 'Russia launches 50+ Shahed drones at Ukrainian energy infrastructure', region: 'UKRAINE', icon: '⚔️', priority: 'high',
+  { cat: 'CONFLICT', text: 'Russia launches 50+ Shahed drones at Ukrainian energy infrastructure', summary: 'Overnight barrage targets power stations in Kharkiv and Dnipro. Air defense intercepts 38 of 52 drones.', region: 'UKRAINE', icon: '⚔️', priority: 'high',
     url: 'https://news.google.com/search?q=Russia+Shahed+drones+Ukraine' },
-  { cat: 'ALERT', text: 'PLA conducts live-fire exercises 12nm from Taiwan coast', region: 'TAIWAN STRAIT', icon: '⚠️', priority: 'high',
+  { cat: 'ALERT', text: 'PLA conducts live-fire exercises 12nm from Taiwan coast', summary: 'Chinese navy deploys two carrier groups for largest Taiwan Strait drill since 2022. Taiwan scrambles F-16Vs.', region: 'TAIWAN STRAIT', icon: '⚠️', priority: 'high',
     url: 'https://news.google.com/search?q=China+PLA+Taiwan+exercises' },
-  { cat: 'CYBER', text: 'Major DDoS attacks hit NATO member banking systems', region: 'EUROPE', icon: '💻', priority: 'high',
+  { cat: 'CYBER', text: 'Major DDoS attacks hit NATO member banking systems', summary: 'Coordinated attacks traced to Fancy Bear APT group. Multiple European banks report service outages lasting 6+ hours.', region: 'EUROPE', icon: '💻', priority: 'high',
     url: 'https://news.google.com/search?q=DDoS+NATO+banking' },
-  { cat: 'DIPLOMATIC', text: 'India offers to mediate Iran-Israel ceasefire, hosts emergency talks', region: 'INDIA', icon: '🏛️', priority: 'medium',
+  { cat: 'DIPLOMATIC', text: 'India offers to mediate Iran-Israel ceasefire, hosts emergency talks', summary: 'PM Modi invites both foreign ministers to New Delhi. UNSC calls emergency session to discuss de-escalation.', region: 'INDIA', icon: '🏛️', priority: 'medium',
     url: 'https://news.google.com/search?q=India+Iran+Israel+ceasefire' },
-  { cat: 'TERROR', text: 'Interpol issues red notice after coordinated bomb threats across three capitals', region: 'GLOBAL', icon: '🚨', priority: 'urgent',
+  { cat: 'TERROR', text: 'Interpol issues red notice after coordinated bomb threats across three capitals', summary: 'Paris, London, and Berlin evacuate transit hubs. No explosives found but security agencies remain on high alert.', region: 'GLOBAL', icon: '🚨', priority: 'urgent',
     url: 'https://news.google.com/search?q=Interpol+terror+threat' },
-  { cat: 'DISASTER', text: '7.2 magnitude earthquake strikes off coast of Indonesia, tsunami warning issued', region: 'ASIA-PACIFIC', icon: '🌊', priority: 'high',
+  { cat: 'DISASTER', text: '7.2 magnitude earthquake strikes off coast of Indonesia, tsunami warning issued', summary: 'Epicenter located 40km off Sulawesi at 10km depth. Coastal residents evacuated. USGS monitoring aftershocks.', region: 'ASIA-PACIFIC', icon: '🌊', priority: 'high',
     url: 'https://news.google.com/search?q=Indonesia+earthquake+tsunami' },
-  { cat: 'POLITICAL', text: 'Mass protests erupt across South America over austerity measures', region: 'S. AMERICA', icon: '🗳️', priority: 'medium',
+  { cat: 'POLITICAL', text: 'Mass protests erupt across South America over austerity measures', summary: 'Millions take to streets in Argentina and Colombia. Tear gas deployed as demonstrators block major highways.', region: 'S. AMERICA', icon: '🗳️', priority: 'medium',
     url: 'https://news.google.com/search?q=South+America+protests+austerity' },
-  { cat: 'ENERGY', text: 'OPEC+ announces emergency production cut, oil futures spike 6%', region: 'GLOBAL', icon: '⛽', priority: 'high',
+  { cat: 'ENERGY', text: 'OPEC+ announces emergency production cut, oil futures spike 6%', summary: 'Saudi Arabia leads 1.5M barrel/day cut. White House calls move "counterproductive" amid inflation concerns.', region: 'GLOBAL', icon: '⛽', priority: 'high',
     url: 'https://news.google.com/search?q=OPEC+production+cut+oil' },
-  { cat: 'SPACE', text: 'SpaceX launches classified NRO reconnaissance satellite from Vandenberg', region: 'USA', icon: '🚀', priority: 'medium',
+  { cat: 'SPACE', text: 'SpaceX launches classified NRO reconnaissance satellite from Vandenberg', summary: 'NROL-167 payload deployed to LEO. Mission details classified. Third NRO launch this quarter.', region: 'USA', icon: '🚀', priority: 'medium',
     url: 'https://news.google.com/search?q=SpaceX+NRO+satellite+launch' },
-  { cat: 'DEFENSE', text: 'Japan scrambles F-35s after unidentified aircraft enter ADIZ', region: 'JAPAN', icon: '🪖', priority: 'high',
+  { cat: 'DEFENSE', text: 'Japan scrambles F-35s after unidentified aircraft enter ADIZ', summary: 'JASDF identifies two Russian Tu-95 bombers near Hokkaido. Aircraft escorted out after 45-minute standoff.', region: 'JAPAN', icon: '🪖', priority: 'high',
     url: 'https://news.google.com/search?q=Japan+F-35+scramble+ADIZ' },
-  { cat: 'MARKETS', text: 'Global semiconductor supply chain disrupted as Taiwan raises alert level', region: 'ASIA', icon: '📈', priority: 'high',
+  { cat: 'MARKETS', text: 'Global semiconductor supply chain disrupted as Taiwan raises alert level', summary: 'TSMC shares drop 8% as military drills threaten shipping lanes. Apple and NVIDIA warn of potential delays.', region: 'ASIA', icon: '📈', priority: 'high',
     url: 'https://news.google.com/search?q=semiconductor+supply+chain+Taiwan' },
-  { cat: 'BREAKING', text: 'North Korea test-fires ICBM into Sea of Japan, G7 convenes emergency session', region: 'KOREA', icon: '🔴', priority: 'urgent',
+  { cat: 'BREAKING', text: 'North Korea test-fires ICBM into Sea of Japan, G7 convenes emergency session', summary: 'Hwasong-18 missile flew 1,000km before splashing down in Japan EEZ. Tokyo and Seoul raise defense readiness.', region: 'KOREA', icon: '🔴', priority: 'urgent',
     url: 'https://news.google.com/search?q=North+Korea+ICBM+test' },
 ];
 
@@ -259,15 +285,20 @@ function renderNewsItems(news) {
   return news.map(item => {
     const priorityClass = item.priority === 'urgent' ? 'news-urgent' : item.priority === 'high' ? 'news-high' : 'news-normal';
     const sourceTag = item.source ? `<span class="news-source">${escapeHTML(item.source)}</span>` : '';
+    const summaryHTML = item.summary ? `<div class="news-item-summary">${escapeHTML(item.summary)}</div>` : '';
     return `
       <a href="${escapeHTML(item.url || '#')}" target="_blank" rel="noopener noreferrer" class="news-item-link">
         <div class="news-item ${priorityClass}">
           <div class="news-item-header">
             <span class="news-cat">${escapeHTML(item.cat)}</span>
-            <span class="news-time">${escapeHTML(item.time)}</span>
+            <span class="news-time">${escapeHTML(item.time || '')}</span>
           </div>
           <div class="news-item-text">${item.icon} ${escapeHTML(item.text)}</div>
-          <div class="news-item-region">${escapeHTML(item.region)} ${sourceTag}</div>
+          ${summaryHTML}
+          <div class="news-item-footer">
+            <span class="news-item-region">${escapeHTML(item.region)}</span>
+            ${sourceTag}
+          </div>
         </div>
       </a>
     `;

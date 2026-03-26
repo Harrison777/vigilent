@@ -18,6 +18,12 @@
     --timeline-height: 56px;
   }
 
+  /* ── GLOBE TOUCH — prevent browser from hijacking gestures ── */
+  #cesiumContainer,
+  #cesiumContainer canvas {
+    touch-action: none;
+  }
+
   /* ── TOP BAR ── */
   #topBar {
     padding: 0 8px;

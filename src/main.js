@@ -76,6 +76,18 @@ async function boot() {
     initInfoPanel();
     initControls();
     initNewsFeed();
+
+    // Wire up news FAB (must be after initNewsFeed creates the panel DOM)
+    const newsFab = document.getElementById('newsFab');
+    const newsFeedPanel = document.querySelector('.news-feed-panel');
+    if (newsFab && newsFeedPanel) {
+      newsFab.addEventListener('click', () => {
+        newsFeedPanel.classList.toggle('mobile-visible');
+        const icon = newsFab.querySelector('.material-symbols-outlined');
+        icon.textContent = newsFeedPanel.classList.contains('mobile-visible') ? 'close' : 'newspaper';
+      });
+    }
+
     initAgent();
     initAuth();
 
@@ -268,19 +280,8 @@ if (sfxBtn) {
 }
 
 // ============================================================
-// MOBILE HANDLERS
+// MOBILE HANDLERS (sidebar — exists in static HTML)
 // ============================================================
-
-// News FAB: toggle news feed panel on mobile
-const newsFab = document.getElementById('newsFab');
-const newsFeedPanel = document.querySelector('.news-feed-panel');
-if (newsFab && newsFeedPanel) {
-  newsFab.addEventListener('click', () => {
-    newsFeedPanel.classList.toggle('mobile-visible');
-    const icon = newsFab.querySelector('.material-symbols-outlined');
-    icon.textContent = newsFeedPanel.classList.contains('mobile-visible') ? 'close' : 'newspaper';
-  });
-}
 
 // Sidebar: open on desktop, closed on mobile
 const sidebar = document.getElementById('sidebar');

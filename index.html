@@ -158,19 +158,11 @@
       animation: blipRing 2.5s ease-out infinite;
       border: 1px solid;
     }
-    /* Individual blip positions, colors, and delays */
-    .blip-1 { top: 28%; left: 62%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 0s; }
+    /* Two red blips — clean radar look */
+    .blip-1 { top: 30%; left: 64%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 0s; }
     .blip-1::after { border-color: var(--accent-red); animation-delay: 0s; }
-    .blip-2 { top: 68%; left: 35%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 0.8s; }
-    .blip-2::after { border-color: var(--accent-red); animation-delay: 0.8s; }
-    .blip-3 { top: 42%; left: 22%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation-delay: 1.2s; }
-    .blip-3::after { border-color: var(--accent-green); animation-delay: 1.2s; }
-    .blip-4 { top: 20%; left: 40%; background: var(--accent-amber); box-shadow: 0 0 6px var(--accent-amber); animation-delay: 0.4s; }
-    .blip-4::after { border-color: var(--accent-amber); animation-delay: 0.4s; }
-    .blip-5 { top: 58%; left: 70%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); animation-delay: 1.8s; }
-    .blip-5::after { border-color: var(--accent-green); animation-delay: 1.8s; }
-    .blip-6 { top: 75%; left: 55%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 2.1s; }
-    .blip-6::after { border-color: var(--accent-red); animation-delay: 2.1s; }
+    .blip-2 { top: 65%; left: 32%; background: var(--accent-red); box-shadow: 0 0 8px var(--accent-red); animation-delay: 1.3s; }
+    .blip-2::after { border-color: var(--accent-red); animation-delay: 1.3s; }
 
     @keyframes blipAppear {
       0% { opacity: 0; transform: scale(0); }
@@ -255,10 +247,6 @@
       <!-- Multiple animated blips -->
       <div class="radar-blip blip-1"></div>
       <div class="radar-blip blip-2"></div>
-      <div class="radar-blip blip-3"></div>
-      <div class="radar-blip blip-4"></div>
-      <div class="radar-blip blip-5"></div>
-      <div class="radar-blip blip-6"></div>
     </div>
     <div class="loading-decoder">
       <span class="decoder-text">DECRYPTING SECURE SATELLITE FEED...</span>
